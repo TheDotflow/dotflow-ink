@@ -43,17 +43,17 @@ jobs:
         run: cargo test
 
   format:
-  needs: install
-  runs-on: ubuntu-latest
-  steps:
-    - name: Use cashed cargo
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo
-        key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use cashed cargo
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
 
-    - name: Checkout the source code
-      uses: actions/checkout@v3
+      - name: Checkout the source code
+        uses: actions/checkout@v3
 
-    - name: Format rust code
-      run: cargo fmt --all
+      - name: Format rust code
+        run: cargo fmt --all
