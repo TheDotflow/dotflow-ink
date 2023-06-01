@@ -1,0 +1,19 @@
+Dotflow test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+unittest:
+  needs: install
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout the source code
+      uses: actions/checkout@v3
+
+    - name: Unit test
+      run: cargo test
