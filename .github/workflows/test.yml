@@ -10,27 +10,27 @@ on:
 
 jobs:
   install:
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout the source code
-      uses: actions/checkout@v3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v3
 
-    - name: Install & display rust toolchain
-      run: |
-        rustup show
-        rustup toolchain install nightly
-        rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-        rustup component add clippy --toolchain nightly-x86_64-unknown-linux-gnu
-        rustup show
+      - name: Install & display rust toolchain
+        run: |
+          rustup show
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup component add clippy --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup show
 
-    - name: Check targets are installed correctly
-      run: rustup target list --installed
+      - name: Check targets are installed correctly
+        run: rustup target list --installed
 
-    - name: Cargo check
-      run: cargo +nightly check
+      - name: Cargo check
+        run: cargo +nightly check
 
-    - name: Check Clippy
-      run: cargo +nightly clippy
+      - name: Check Clippy
+        run: cargo +nightly clippy
 
   unittest:
     needs: install
