@@ -25,17 +25,17 @@ pub struct IdentityInfo {
 
 impl IdentityInfo {
 	/// Adds an address for the given network
-	pub fn add_address(network: Network, address: Address) {
+	pub fn add_address(&mut self, network: Network, address: Address) {
 		// TODO:
 	}
 
 	/// Updates the address of the given network
-	pub fn update_address(network: Network, new_address: Address) {
+	pub fn update_address(&mut self, network: Network, new_address: Address) {
 		// TODO:
 	}
 
 	/// Remove address of the given network
-	pub fn remove_address(network: Network) {
+	pub fn remove_address(&mut self, network: Network) {
 		// TODO:
 	}
 }
@@ -69,7 +69,7 @@ mod identity {
 		#[ink(message)]
 		/// Create an identity and returns the `IdentityNo`
 		/// A user can only create one identity
-		pub fn create_identity(&self) -> IdentityNo {
+		pub fn create_identity(&mut self) -> IdentityNo {
 			// TODO: Check if the caller already owns an identity
 
 			// Generate a new IdentityNo
@@ -86,25 +86,25 @@ mod identity {
 
 		#[ink(message)]
 		/// Adds an address for a given network
-		pub fn add_address(&self, network: Network, address: Address) {
+		pub fn add_address(&mut self, network: Network, address: Address) {
 			// TODO:
 		}
 
 		#[ink(message)]
 		/// Updates the address of the given network
-		pub fn update_address(&self, network: Network, address: Address) {
+		pub fn update_address(&mut self, network: Network, address: Address) {
 			// TODO:
 		}
 
 		#[ink(message)]
 		/// Removes the address by network
-		pub fn remove_address(&self, network: Network) {
+		pub fn remove_address(&mut self, network: Network) {
 			// TODO:
 		}
 
 		#[ink(message)]
 		/// Removes an identity
-		pub fn remove_identity(&self, identity_no: IdentityNo) {
+		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
 			// TODO:
 		}
 	}
