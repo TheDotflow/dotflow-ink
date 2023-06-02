@@ -1,6 +1,9 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::storage::traits::StorageLayout;
+use ink::{
+	prelude::{string::String, vec::Vec},
+	storage::traits::StorageLayout,
+};
 
 /// Each identity will be associated with a unique identifier called `IdentityNo`.
 pub type IdentityNo = u64;
@@ -11,7 +14,16 @@ pub type IdentityNo = u64;
 pub type Address = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
-pub type Network = String;
+#[derive(scale::Encode, scale::Decode, Debug)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
+pub enum Network {
+	/// Polkadot network
+	Polkadot(String),
+	/// Kusama network
+	Kusama(String),
+	/// Rococo network
+	Rococo(String),
+}
 
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
