@@ -14,16 +14,7 @@ pub type IdentityNo = u64;
 pub type Address = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
-#[derive(scale::Encode, scale::Decode, Debug)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
-pub enum Network {
-	/// Polkadot network
-	Polkadot(String),
-	/// Kusama network
-	Kusama(String),
-	/// Rococo network
-	Rococo(String),
-}
+pub type Network = String;
 
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
