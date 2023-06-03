@@ -55,19 +55,13 @@ impl IdentityInfo {
 
 	/// Updates the address of the given network
 	pub fn update_address(&mut self, network: Network, new_address: Address) -> Result<(), Error> {
-		let mut exist = false;
-
-		self.addresses.iter_mut().for_each(|item| {
-			if item.0 == network {
-				item.1 = new_address.clone();
-				exist = true;
-			}
-		});
-
-		if exist {
+		if let Some(position) =
+			self.addresses.clone().into_iter().position(|address| address.0 == network)
+		{
+			self.addresses[position] = (network, new_address);
 			Ok(())
 		} else {
-			Err(Error::InvalidNetwork)
+			return Err(Error::InvalidNetwork)
 		}
 	}
 
@@ -118,6 +112,14 @@ mod identity {
 		address: Address,
 	}
 
+	#[ink(event)]
+	pub struct AddressUpdated {
+		#[ink(topic)]
+		identity_no: IdentityNo,
+		network: Network,
+		updated_address: Address,
+	}
+
 	impl Identity {
 		#[ink(constructor)]
 		pub fn new() -> Self {
@@ -154,16 +156,9 @@ mod identity {
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
 			let identity_no = self.identity_of.get(caller).unwrap();
-			let identity_info = self.number_to_identity.get(identity_no);
+			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			// This is a defensive check. The identity info should always exist
-			// when the identity no associated to it is stored in the
-			// `identity_of` mapping.
-			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
-
-			let mut identity_info = identity_info.unwrap();
 			identity_info.add_address(network.clone(), address.clone())?;
-
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressAdded { identity_no, network, address });
@@ -174,7 +169,20 @@ mod identity {
 		#[ink(message)]
 		/// Updates the address of the given network
 		pub fn update_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
-			// TODO:
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+			let mut identity_info = self.get_identity_info_of_caller(caller)?;
+
+			identity_info.update_address(network.clone(), address.clone())?;
+			self.number_to_identity.insert(identity_no, &identity_info);
+
+			self.env().emit_event(AddressUpdated {
+				identity_no,
+				network,
+				updated_address: address,
+			});
 
 			Ok(())
 		}
@@ -194,13 +202,29 @@ mod identity {
 
 			Ok(())
 		}
+
+		pub fn get_identity_info_of_caller(
+			&self,
+			caller: AccountId,
+		) -> Result<IdentityInfo, Error> {
+			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_info = self.number_to_identity.get(identity_no);
+
+			// This is a defensive check. The identity info should always exist
+			// when the identity no associated to it is stored in the
+			// `identity_of` mapping.
+			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
+
+			let identity_info = identity_info.unwrap();
+			Ok(identity_info)
+		}
 	}
 
 	#[cfg(test)]
 	mod tests {
 		use super::*;
 		use ink::env::{
-			test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
+			test::{default_accounts, recorded_events, set_callee, set_caller, DefaultAccounts},
 			DefaultEnvironment,
 		};
 
@@ -304,6 +328,71 @@ mod identity {
 			set_caller::<DefaultEnvironment>(bob);
 			assert_eq!(
 				identity.add_address(moonbeam.clone(), encoded_address.clone()),
+				Err(Error::NotAllowed)
+			);
+		}
+
+		#[ink::test]
+		fn update_address_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
+			let charlie = accounts.charlie;
+			let polkadot = "Polkadot".to_string();
+			let moonbeam = "Moonbeam".to_string();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			let polkadot_address = alice.encode();
+
+			assert!(identity.add_address(polkadot.clone(), polkadot_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), polkadot_address.clone())] }
+			);
+
+			// Alice lost the key phrase of her old address so now she wants to use her other
+			// address.
+			let new_polkadot_address = accounts.bob.encode();
+
+			assert!(identity
+				.update_address(polkadot.clone(), new_polkadot_address.clone())
+				.is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), new_polkadot_address.clone())] }
+			);
+
+			assert_eq!(recorded_events().count(), 3);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::AddressUpdated(AddressUpdated { identity_no, network, updated_address }) =
+				decoded_event else { panic!("AddressUpdated event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(network, polkadot);
+			assert_eq!(updated_address, new_polkadot_address);
+
+			// Won't work since the identity doesn't have an address on the
+			// Moonbeam parachain.
+			assert_eq!(
+				identity.update_address(moonbeam.clone(), alice.encode()),
+				Err(Error::InvalidNetwork)
+			);
+
+			// Charlie is not allowed to update to alice's identity.
+			set_caller::<DefaultEnvironment>(charlie);
+			assert_eq!(
+				identity.update_address(polkadot.clone(), charlie.encode()),
 				Err(Error::NotAllowed)
 			);
 		}
