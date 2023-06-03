@@ -77,6 +77,12 @@ mod identity {
 	}
 
 	// TODO: Add events
+	#[ink(event)]
+	pub struct IdentityCreated {
+		#[ink(topic)]
+		owner: AccountId,
+		identity_no: IdentityNo,
+	}
 
 	impl Identity {
 		#[ink(constructor)]
@@ -101,6 +107,8 @@ mod identity {
 			self.owner_of.insert(identity_no, &caller);
 
 			self.identity_count = self.identity_count.saturating_add(1);
+
+			self.env().emit_event(IdentityCreated { owner: caller, identity_no });
 
 			Ok(identity_no)
 		}
@@ -143,36 +151,68 @@ mod identity {
 	#[cfg(test)]
 	mod tests {
 		use super::*;
+		use ink::env::{
+			test::{default_accounts, recorded_events, DefaultAccounts},
+			DefaultEnvironment,
+		};
+
+		type Event = <Identity as ::ink::reflect::ContractEventBase>::Type;
 
 		/// We test if the constructor does its job.
 		#[ink::test]
 		fn constructor_works() {
 			let identity = Identity::new();
+
+			assert_eq!(identity.identity_count, 0);
 		}
 
 		#[ink::test]
-		fn identity_creation_works() {
-			let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+		fn create_identity_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
 
 			let mut identity = Identity::new();
 
 			assert!(identity.create_identity().is_ok());
 
+			// Test the emitted event
+			assert_eq!(recorded_events().count(), 1);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::IdentityCreated(IdentityCreated { owner, identity_no }) = decoded_event;
+
+			assert_eq!(owner, alice);
+			assert_eq!(identity_no, 0);
+
 			// Make sure all the storage values got properly updated.
-			assert_eq!(identity.identity_of.get(accounts.alice), Some(0));
-			assert_eq!(identity.owner_of.get(0), Some(accounts.alice));
+			assert_eq!(identity.identity_of.get(alice), Some(0));
+			assert_eq!(identity.owner_of.get(0), Some(alice));
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
 				IdentityInfo { addresses: Default::default() }
 			);
+			assert_eq!(identity.identity_count, 1);
+		}
 
-			// Not possible to create an identity twice.
+		#[ink::test]
+		fn create_identity_already_exist() {
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			// A user can create one identity only
 			assert_eq!(identity.create_identity(), Err(Error::NotAllowed));
 		}
 
 		#[ink::test]
 		fn add_address_works() {
-			// TODO
+			// TODO:
+		}
+
+		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
+			default_accounts::<DefaultEnvironment>()
 		}
 	}
 
