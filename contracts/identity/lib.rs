@@ -19,6 +19,7 @@ pub type IdentityNo = u64;
 /// We want to keep the address type very generic since we want to support any
 /// address format. We won't actually keep the addresses in the contract itself.
 /// Before storing them, we'll encrypt them to ensure privacy.
+// TODO limit the length;
 pub type Address = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
@@ -90,6 +91,7 @@ impl IdentityInfo {
 mod identity {
 	use super::*;
 	use ink::storage::Mapping;
+	use scale::Encode;
 
 	#[ink(storage)]
 	#[derive(Default)]
@@ -106,6 +108,14 @@ mod identity {
 		#[ink(topic)]
 		owner: AccountId,
 		identity_no: IdentityNo,
+	}
+
+	#[ink(event)]
+	pub struct AddressAdded {
+		#[ink(topic)]
+		identity_no: IdentityNo,
+		network: Network,
+		address: Address,
 	}
 
 	impl Identity {
@@ -144,18 +154,19 @@ mod identity {
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
 			let identity_no = self.identity_of.get(caller).unwrap();
-
 			let identity_info = self.number_to_identity.get(identity_no);
-			// FIXME: We don't really need this check if everything is correct.
-			// If a user has created an identity, we will have his/her `IdentityInfo` in the
-			// storage.
+
+			// This is a defensive check. The identity info should always exist
+			// when the identity no associated to it is stored in the
+			// `identity_of` mapping.
 			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
 
 			let mut identity_info = identity_info.unwrap();
-
-			identity_info.add_address(network, address)?;
+			identity_info.add_address(network.clone(), address.clone())?;
 
 			self.number_to_identity.insert(identity_no, &identity_info);
+
+			self.env().emit_event(AddressAdded { identity_no, network, address });
 
 			Ok(())
 		}
@@ -189,7 +200,7 @@ mod identity {
 	mod tests {
 		use super::*;
 		use ink::env::{
-			test::{default_accounts, recorded_events, DefaultAccounts},
+			test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
 			DefaultEnvironment,
 		};
 
@@ -218,7 +229,8 @@ mod identity {
 			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 				.expect("Failed to decode event");
 
-			let Event::IdentityCreated(IdentityCreated { owner, identity_no }) = decoded_event;
+			let Event::IdentityCreated(IdentityCreated { owner, identity_no }) =
+				decoded_event else { panic!("IdentityCreated event should be emitted") };
 
 			assert_eq!(owner, alice);
 			assert_eq!(identity_no, 0);
@@ -244,8 +256,56 @@ mod identity {
 		}
 
 		#[ink::test]
-		fn add_address_no_identity() {
-			// TODO:
+		fn add_address_to_identity_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
+			let bob = accounts.bob;
+			let polkadot = "Polkadot".to_string();
+			let moonbeam = "Moonbeam".to_string();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			// In reality this address would be encrypted before storing in the contract.
+			let encoded_address = alice.encode();
+
+			assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+			);
+
+			assert_eq!(recorded_events().count(), 2);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::AddressAdded(AddressAdded { identity_no, network, address }) =
+				decoded_event else { panic!("AddressAdded event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(network, polkadot);
+			assert_eq!(address, encoded_address);
+
+			// Cannot add an address for the same network twice.
+			assert_eq!(
+				identity.add_address(polkadot.clone(), encoded_address.clone()),
+				Err(Error::AddressAlreadyAdded)
+			);
+
+			// Bob is not allowed to add an address to alice's identity.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(
+				identity.add_address(moonbeam.clone(), encoded_address.clone()),
+				Err(Error::NotAllowed)
+			);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
