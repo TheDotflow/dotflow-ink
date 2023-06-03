@@ -37,6 +37,7 @@ pub enum Error {
 	NotAllowed,
 	IdentityDoesntExist,
 	AddressAlreadyAdded,
+	InvalidNetwork,
 }
 
 impl IdentityInfo {
@@ -52,13 +53,36 @@ impl IdentityInfo {
 	}
 
 	/// Updates the address of the given network
-	pub fn update_address(&mut self, network: Network, new_address: Address) {
-		// TODO:
+	pub fn update_address(&mut self, network: Network, new_address: Address) -> Result<(), Error> {
+		let mut exist = false;
+
+		self.addresses.iter_mut().for_each(|item| {
+			if item.0 == network {
+				item.1 = new_address.clone();
+				exist = true;
+			}
+		});
+
+		if exist {
+			Ok(())
+		} else {
+			Err(Error::InvalidNetwork)
+		}
 	}
 
-	/// Remove address of the given network
-	pub fn remove_address(&mut self, network: Network) {
-		// TODO:
+	/// Remove an address record by network
+	pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
+		let old_count = self.addresses.len();
+
+		self.addresses.retain(|(net, _)| *net != network);
+
+		let new_count = self.addresses.len();
+
+		if old_count == new_count {
+			Err(Error::InvalidNetwork)
+		} else {
+			Ok(())
+		}
 	}
 }
 
@@ -120,7 +144,14 @@ mod identity {
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
 			let identity_no = self.identity_of.get(caller).unwrap();
-			let Some(mut identity_info) = self.number_to_identity.get(identity_no) else { return Err(Error::IdentityDoesntExist) };
+
+			let identity_info = self.number_to_identity.get(identity_no);
+			// FIXME: We don't really need this check if everything is correct.
+			// If a user has created an identity, we will have his/her `IdentityInfo` in the
+			// storage.
+			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
+
+			let mut identity_info = identity_info.unwrap();
 
 			identity_info.add_address(network, address)?;
 
@@ -131,20 +162,26 @@ mod identity {
 
 		#[ink(message)]
 		/// Updates the address of the given network
-		pub fn update_address(&mut self, network: Network, address: Address) {
+		pub fn update_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
 			// TODO:
+
+			Ok(())
 		}
 
 		#[ink(message)]
 		/// Removes the address by network
-		pub fn remove_address(&mut self, network: Network) {
+		pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
 			// TODO:
+
+			Ok(())
 		}
 
 		#[ink(message)]
 		/// Removes an identity
-		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
+		pub fn remove_identity(&mut self, identity_no: IdentityNo) -> Result<(), Error> {
 			// TODO:
+
+			Ok(())
 		}
 	}
 
@@ -207,7 +244,7 @@ mod identity {
 		}
 
 		#[ink::test]
-		fn add_address_works() {
+		fn add_address_no_identity() {
 			// TODO:
 		}
 
