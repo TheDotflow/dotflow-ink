@@ -197,7 +197,7 @@ mod identity {
 
 		#[ink(message)]
 		/// Removes an identity
-		pub fn remove_identity(&mut self, identity_no: IdentityNo) -> Result<(), Error> {
+		pub fn remove_identity(&mut self) -> Result<(), Error> {
 			// TODO:
 
 			Ok(())
