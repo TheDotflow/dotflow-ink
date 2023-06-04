@@ -61,7 +61,7 @@ impl IdentityInfo {
 			self.addresses[position] = (network, new_address);
 			Ok(())
 		} else {
-			return Err(Error::InvalidNetwork)
+			Err(Error::InvalidNetwork)
 		}
 	}
 
