@@ -23,13 +23,13 @@ pub type IdentityNo = u64;
 pub type Address = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
-pub type Network = String;
+pub type NetworkId = u8;
 
 #[derive(scale::Encode, scale::Decode, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct IdentityInfo {
 	/// Each address is associated with a specific blockchain.
-	addresses: Vec<(Network, Address)>,
+	addresses: Vec<(NetworkId, Address)>,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
@@ -43,7 +43,7 @@ pub enum Error {
 
 impl IdentityInfo {
 	/// Adds an address for the given network
-	pub fn add_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
+	pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
 		ensure!(
 			self.addresses.clone().into_iter().find(|address| address.0 == network) == None,
 			Error::AddressAlreadyAdded
@@ -54,7 +54,11 @@ impl IdentityInfo {
 	}
 
 	/// Updates the address of the given network
-	pub fn update_address(&mut self, network: Network, new_address: Address) -> Result<(), Error> {
+	pub fn update_address(
+		&mut self,
+		network: NetworkId,
+		new_address: Address,
+	) -> Result<(), Error> {
 		let mut exist = false;
 
 		self.addresses.iter_mut().for_each(|item| {
@@ -72,7 +76,7 @@ impl IdentityInfo {
 	}
 
 	/// Remove an address record by network
-	pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
+	pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 		let old_count = self.addresses.len();
 
 		self.addresses.retain(|(net, _)| *net != network);
@@ -100,6 +104,9 @@ mod identity {
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
 		identity_count: u64,
+		network_id_to_name: Mapping<NetworkId, String>,
+		network_name_to_id: Mapping<String, NetworkId>,
+		network_id_counter: NetworkId,
 	}
 
 	// TODO: Add events
@@ -114,7 +121,7 @@ mod identity {
 	pub struct AddressAdded {
 		#[ink(topic)]
 		identity_no: IdentityNo,
-		network: Network,
+		network: NetworkId,
 		address: Address,
 	}
 
@@ -149,7 +156,7 @@ mod identity {
 
 		#[ink(message)]
 		/// Adds an address for a given network
-		pub fn add_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
+		pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
@@ -173,7 +180,11 @@ mod identity {
 
 		#[ink(message)]
 		/// Updates the address of the given network
-		pub fn update_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
+		pub fn update_address(
+			&mut self,
+			network: NetworkId,
+			address: Address,
+		) -> Result<(), Error> {
 			// TODO:
 
 			Ok(())
@@ -181,7 +192,7 @@ mod identity {
 
 		#[ink(message)]
 		/// Removes the address by network
-		pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
+		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 			// TODO:
 
 			Ok(())
@@ -194,6 +205,9 @@ mod identity {
 
 			Ok(())
 		}
+
+		#[ink(message)]
+		pub fn add_network(&mut self, name: String) -> Result<(), Error> {}
 	}
 
 	#[cfg(test)]
@@ -212,6 +226,12 @@ mod identity {
 			let identity = Identity::new();
 
 			assert_eq!(identity.identity_count, 0);
+			assert_eq!(identity.number_to_identity, Default::default());
+			assert_eq!(identity.owner_of, Default::default());
+			assert_eq!(identity.identity_of, Default::default());
+			assert_eq!(identity.network_id_to_name, Default::default());
+			assert_eq!(identity.network_name_to_id, Default::default());
+			assert_eq!(identity.network_id_counter, 0);
 		}
 
 		#[ink::test]
