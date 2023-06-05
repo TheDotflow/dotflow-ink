@@ -17,12 +17,11 @@ macro_rules! ensure {
 const ADDRESS_SIZE_LIMIT: usize = 128;
 
 /// Each identity will be associated with a unique identifier called `IdentityNo`.
-pub type IdentityNo = u64;
+pub type IdentityNo = u32;
 
 /// We want to keep the address type very generic since we want to support any
 /// address format. We won't actually keep the addresses in the contract itself.
 /// Before storing them, we'll encrypt them to ensure privacy.
-// TODO limit the length;
 pub type Address = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
@@ -93,16 +92,17 @@ mod identity {
 	use super::*;
 	use ink::storage::Mapping;
 
+	/// Storage
 	#[ink(storage)]
 	#[derive(Default)]
 	pub struct Identity {
 		number_to_identity: Mapping<IdentityNo, IdentityInfo>,
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
-		identity_count: u64,
+		identity_count: u32,
 	}
-
-	// TODO: Add events
+	
+	/// Events
 	#[ink(event)]
 	pub struct IdentityCreated {
 		#[ink(topic)]
