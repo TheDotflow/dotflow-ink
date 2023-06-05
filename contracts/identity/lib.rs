@@ -99,7 +99,7 @@ mod identity {
 		number_to_identity: Mapping<IdentityNo, IdentityInfo>,
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
-		identity_count: u64,
+		identity_count: u32,
 	}
 	
 	/// Events
