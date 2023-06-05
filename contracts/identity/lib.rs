@@ -516,9 +516,9 @@ mod identity {
 			assert_eq!(identity.owner_of.get(0), None);
 			assert_eq!(identity.identity_of.get(alice), None);
 			assert_eq!(identity.number_to_identity.get(0), None);
-    }
-    
-    #[ink::test]
+		}
+
+		#[ink::test]
 		fn address_size_limit_works() {
 			let polkadot = "Polkadot".to_string();
 
