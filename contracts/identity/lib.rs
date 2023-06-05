@@ -13,6 +13,9 @@ macro_rules! ensure {
 	}};
 }
 
+/// Encrypted addresses should never exceed this size limit.
+const ADDRESS_SIZE_LIMIT: usize = 128;
+
 /// Each identity will be associated with a unique identifier called `IdentityNo`.
 pub type IdentityNo = u64;
 
@@ -39,11 +42,14 @@ pub enum Error {
 	IdentityDoesntExist,
 	AddressAlreadyAdded,
 	InvalidNetwork,
+	AddressSizeExceeded,
 }
 
 impl IdentityInfo {
 	/// Adds an address for the given network
 	pub fn add_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
+		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
+
 		ensure!(
 			self.addresses.clone().into_iter().find(|address| address.0 == network) == None,
 			Error::AddressAlreadyAdded
@@ -55,6 +61,8 @@ impl IdentityInfo {
 
 	/// Updates the address of the given network
 	pub fn update_address(&mut self, network: Network, new_address: Address) -> Result<(), Error> {
+		ensure!(new_address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
+
 		if let Some(position) =
 			self.addresses.clone().into_iter().position(|address| address.0 == network)
 		{
@@ -508,6 +516,22 @@ mod identity {
 			assert_eq!(identity.owner_of.get(0), None);
 			assert_eq!(identity.identity_of.get(alice), None);
 			assert_eq!(identity.number_to_identity.get(0), None);
+    }
+    
+    #[ink::test]
+		fn address_size_limit_works() {
+			let polkadot = "Polkadot".to_string();
+
+			let mut identity = Identity::new();
+			assert!(identity.create_identity().is_ok());
+
+			let mut polkadot_address: Vec<u8> = vec![];
+			(0..150).for_each(|n| polkadot_address.push(n));
+
+			assert_eq!(
+				identity.add_address(polkadot.clone(), polkadot_address.clone()),
+				Err(Error::AddressSizeExceeded)
+			);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
