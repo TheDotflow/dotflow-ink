@@ -68,7 +68,6 @@ impl IdentityInfo {
 	/// Remove an address record by network
 	pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
 		let old_count = self.addresses.len();
-
 		self.addresses.retain(|(net, _)| *net != network);
 
 		let new_count = self.addresses.len();
@@ -85,7 +84,6 @@ impl IdentityInfo {
 mod identity {
 	use super::*;
 	use ink::storage::Mapping;
-	use scale::Encode;
 
 	#[ink(storage)]
 	#[derive(Default)]
@@ -118,6 +116,19 @@ mod identity {
 		identity_no: IdentityNo,
 		network: Network,
 		updated_address: Address,
+	}
+
+	#[ink(event)]
+	pub struct AddressRemoved {
+		#[ink(topic)]
+		identity_no: IdentityNo,
+		network: Network,
+	}
+
+	#[ink(event)]
+	pub struct IdentityRemoved {
+		#[ink(topic)]
+		identity_no: IdentityNo,
 	}
 
 	impl Identity {
@@ -190,7 +201,16 @@ mod identity {
 		#[ink(message)]
 		/// Removes the address by network
 		pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
-			// TODO:
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+			let mut identity_info = self.get_identity_info_of_caller(caller)?;
+
+			identity_info.remove_address(network.clone())?;
+			self.number_to_identity.insert(identity_no, &identity_info);
+
+			self.env().emit_event(AddressRemoved { identity_no, network });
 
 			Ok(())
 		}
@@ -198,7 +218,16 @@ mod identity {
 		#[ink(message)]
 		/// Removes an identity
 		pub fn remove_identity(&mut self) -> Result<(), Error> {
-			// TODO:
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+
+			self.identity_of.remove(caller);
+			self.owner_of.remove(identity_no);
+			self.number_to_identity.remove(identity_no);
+
+			self.env().emit_event(IdentityRemoved { identity_no });
 
 			Ok(())
 		}
@@ -216,6 +245,7 @@ mod identity {
 			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
 
 			let identity_info = identity_info.unwrap();
+
 			Ok(identity_info)
 		}
 	}
@@ -224,9 +254,10 @@ mod identity {
 	mod tests {
 		use super::*;
 		use ink::env::{
-			test::{default_accounts, recorded_events, set_callee, set_caller, DefaultAccounts},
+			test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
 			DefaultEnvironment,
 		};
+		use scale::Encode;
 
 		type Event = <Identity as ::ink::reflect::ContractEventBase>::Type;
 
@@ -395,6 +426,88 @@ mod identity {
 				identity.update_address(polkadot.clone(), charlie.encode()),
 				Err(Error::NotAllowed)
 			);
+		}
+
+		#[ink::test]
+		fn remove_address_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
+			let bob = accounts.bob;
+			let polkadot = "Polkadot".to_string();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			// In reality this address would be encrypted before storing in the contract.
+			let encoded_address = alice.encode();
+
+			assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+			);
+
+			// Bob is not allowed to remove an address from alice's identity.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.remove_address(polkadot.clone()), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+
+			assert!(identity.remove_address(polkadot.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![] }
+			);
+
+			// Cannot remove an address from a network that is not part of the
+			// identity.
+			assert_eq!(identity.remove_address(polkadot.clone()), Err(Error::InvalidNetwork));
+		}
+
+		#[ink::test]
+		fn remove_identity_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
+			let bob = accounts.bob;
+			let polkadot = "Polkadot".to_string();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			// In reality this address would be encrypted before storing in the contract.
+			let encoded_address = alice.encode();
+
+			assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+			);
+
+			// Bob is not allowed to remove alice's identity.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.remove_identity(), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.remove_identity().is_ok());
+
+			// Make sure all of the state got removed.
+			assert_eq!(identity.owner_of.get(0), None);
+			assert_eq!(identity.identity_of.get(alice), None);
+			assert_eq!(identity.number_to_identity.get(0), None);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
