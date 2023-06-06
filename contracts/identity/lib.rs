@@ -554,6 +554,48 @@ mod identity {
 			);
 		}
 
+		#[ink::test]
+		fn transfer_ownership_works() {
+			let accounts = get_default_accounts();
+			let alice = accounts.alice;
+			let bob = accounts.bob;
+			let polkadot = "Polkadot".to_string();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			// In reality this address would be encrypted before storing in the contract.
+			let encoded_address = alice.encode();
+
+			assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+			);
+
+			// Bob is not allowed to transfer the ownership.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.transfer_ownership(bob), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.transfer_ownership(bob).is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(bob));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+			);
+			assert_eq!(identity.identity_of.get(alice), None);
+			assert_eq!(identity.identity_of.get(bob), Some(0));
+		}
+
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 			default_accounts::<DefaultEnvironment>()
 		}
