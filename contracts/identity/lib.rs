@@ -101,7 +101,7 @@ mod identity {
 		identity_of: Mapping<AccountId, IdentityNo>,
 		identity_count: u32,
 	}
-	
+
 	/// Events
 	#[ink(event)]
 	pub struct IdentityCreated {
@@ -145,9 +145,10 @@ mod identity {
 			Default::default()
 		}
 
+		/// Creates an identity and returns the `IdentityNo`.
+		///
+		/// A user can only create one identity.
 		#[ink(message)]
-		/// Creates an identity and returns the `IdentityNo` A user can only
-		/// create one identity.
 		pub fn create_identity(&mut self) -> Result<IdentityNo, Error> {
 			let caller = self.env().caller();
 
@@ -168,8 +169,8 @@ mod identity {
 			Ok(identity_no)
 		}
 
-		#[ink(message)]
 		/// Adds an address for a given network
+		#[ink(message)]
 		pub fn add_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -185,8 +186,8 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Updates the address of the given network
+		#[ink(message)]
 		pub fn update_address(&mut self, network: Network, address: Address) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -206,8 +207,8 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Removes the address by network
+		#[ink(message)]
 		pub fn remove_address(&mut self, network: Network) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -223,8 +224,8 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Removes an identity
+		#[ink(message)]
 		pub fn remove_identity(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -236,6 +237,25 @@ mod identity {
 			self.number_to_identity.remove(identity_no);
 
 			self.env().emit_event(IdentityRemoved { identity_no });
+
+			Ok(())
+		}
+
+		/// Transfers the ownership of an identity to another account.
+		///
+		/// Only callable by the identity owner or any account that the identity
+		/// owner added as a proxy.
+		#[ink(message)]
+		pub fn transfer_ownership(&mut self, new_owner: AccountId) -> Result<(), Error> {
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+
+			self.identity_of.remove(caller);
+			self.identity_of.insert(new_owner, &identity_no);
+
+			self.owner_of.insert(identity_no, &new_owner);
 
 			Ok(())
 		}
