@@ -46,7 +46,6 @@ pub enum Error {
 	InvalidNetwork,
 	AddressSizeExceeded,
 	NetworkNameTooLong,
-	NetworkAlreadyExist,
 }
 
 impl IdentityInfo {
@@ -108,8 +107,7 @@ mod identity {
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
 		identity_count: u32,
-		network_id_to_name: Mapping<NetworkId, String>,
-		network_name_to_id: Mapping<String, NetworkId>,
+		network_name: Mapping<NetworkId, String>,
 		network_id_counter: NetworkId,
 		admin: AccountId,
 	}
@@ -180,8 +178,7 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				identity_count: 0,
-				network_id_to_name: Default::default(),
-				network_name_to_id: Default::default(),
+				network_name: Default::default(),
 				network_id_counter: 0,
 				admin: caller,
 			}
@@ -296,13 +293,9 @@ mod identity {
 			// Ensure that the name of the network doesn't exceed length limit
 			ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
-			// Network is already added
-			ensure!(!self.network_name_to_id.contains(name.clone()), Error::NetworkAlreadyExist);
-
 			let network_id = self.network_id_counter;
 
-			self.network_id_to_name.insert(network_id, &name);
-			self.network_name_to_id.insert(&name, &network_id);
+			self.network_name.insert(network_id, &name);
 
 			self.network_id_counter = self.network_id_counter.saturating_add(1);
 
@@ -326,20 +319,11 @@ mod identity {
 			ensure!(new_name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
 			// Ensure that the given network id exists
-			let old_name = self.network_id_to_name.get(network_id);
+			let old_name = self.network_name.get(network_id);
 			ensure!(old_name.is_some(), Error::InvalidNetwork);
 
-			// Ensure that we don't have another network with the same name as `new_name`
-			ensure!(
-				!self.network_name_to_id.contains(new_name.clone()),
-				Error::NetworkAlreadyExist
-			);
-
 			// Update storage items
-			self.network_id_to_name.insert(network_id, &new_name);
-			self.network_name_to_id.insert(new_name.clone(), &network_id);
-
-			self.network_name_to_id.remove(old_name.unwrap());
+			self.network_name.insert(network_id, &new_name);
 
 			self.env().emit_event(NetworkUpdated { network_id, name: new_name });
 
@@ -354,11 +338,10 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given `network_id` exists
-			let name = self.network_id_to_name.get(network_id);
+			let name = self.network_name.get(network_id);
 			ensure!(name.is_some(), Error::InvalidNetwork);
 
-			self.network_id_to_name.remove(network_id);
-			self.network_name_to_id.remove(name.unwrap());
+			self.network_name.remove(network_id);
 
 			self.env().emit_event(NetworkRemoved { network_id });
 
@@ -687,8 +670,7 @@ mod identity {
 			assert_eq!(name, polkadot);
 
 			// Check storage items updated
-			assert_eq!(identity.network_id_to_name.get(network_id), Some(name.clone()));
-			assert_eq!(identity.network_name_to_id.get(name), Some(network_id));
+			assert_eq!(identity.network_name.get(network_id), Some(name.clone()));
 			assert_eq!(identity.network_id_counter, 1);
 
 			// Only the contract creator can add a new network
@@ -701,8 +683,6 @@ mod identity {
 			let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
 			assert_eq!(identity.add_network(long_network_name), Err(Error::NetworkNameTooLong));
 
-			// Cannot add the same network twice
-			assert_eq!(identity.add_network(polkadot), Err(Error::NetworkAlreadyExist));
 		}
 
 		#[ink::test]
@@ -728,8 +708,7 @@ mod identity {
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.remove_network(network_id).is_ok());
 
-			assert!(identity.network_id_to_name.get(0).is_none());
-			assert!(identity.network_name_to_id.get(polkadot).is_none());
+			assert!(identity.network_name.get(0).is_none());
 
 			// Check emitted events
 			assert_eq!(recorded_events().count(), 2);
@@ -776,12 +755,6 @@ mod identity {
 
 			// Must be an existing network
 			assert_eq!(identity.update_network(3, moonbeam.clone()), Err(Error::InvalidNetwork));
-
-			// Cannot use a name already in use
-			assert_eq!(
-				identity.update_network(polkadot_id, kusama.clone()),
-				Err(Error::NetworkAlreadyExist)
-			);
 
 			// Update network success
 			assert!(identity.update_network(polkadot_id, moonbeam.clone()).is_ok());
