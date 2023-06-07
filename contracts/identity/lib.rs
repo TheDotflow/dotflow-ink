@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::{
-	prelude::{string::String, vec::Vec},
-	storage::traits::StorageLayout,
-};
+use ink::prelude::{string::String, vec::Vec};
+
+#[cfg(feature = "std")]
+use ink::storage::traits::StorageLayout;
 
 macro_rules! ensure {
 	( $x:expr, $y:expr $(,)? ) => {{
@@ -143,6 +143,25 @@ mod identity {
 		#[ink(constructor)]
 		pub fn new() -> Self {
 			Default::default()
+		}
+
+		/// Returns the `IdentityInfo` of an identity that is associated with
+		/// the provided `IdentityNo`.
+		#[ink(message)]
+		pub fn identity(&self, identity_no: IdentityNo) -> Option<IdentityInfo> {
+			self.number_to_identity.get(identity_no)
+		}
+
+		/// Returns the owner of an identity.
+		#[ink(message)]
+		pub fn owner_of(&self, identity_no: IdentityNo) -> Option<AccountId> {
+			self.owner_of.get(identity_no)
+		}
+
+		/// Returns the owner of an identity.
+		#[ink(message)]
+		pub fn identity_of(&self, owner: AccountId) -> Option<IdentityNo> {
+			self.identity_of.get(owner)
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.
@@ -602,5 +621,66 @@ mod identity {
 	}
 
 	#[cfg(all(test, feature = "e2e-tests"))]
-	mod e2e_tests {}
+	mod e2e_tests {
+		use super::*;
+		use ink_e2e::{build_message, subxt::dynamic::Value};
+		use scale::Encode;
+		type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+		#[ink_e2e::test]
+		async fn transfer_ownership_works() -> E2EResult<()> {
+			let constructor = IdentityRef::new();
+
+			let contract_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), constructor, 0, None)
+				.await
+				.expect("instantiation failed")
+				.account_id;
+
+			let create_identity = build_message::<IdentityRef>(contract_acc_id.clone())
+				.call(|identity| identity.create_identity());
+
+			// Alice creates an identity.
+			let _create_result = client
+				.call(&ink_e2e::alice(), create_identity, 0, None)
+				.await
+				.expect("identity creation failed");
+
+			// Adds her polkadot address to her identity.
+			let polkadot = "Polkadot".to_string();
+			let encoded_address = ink_e2e::account_id(ink_e2e::AccountKeyring::Alice).encode();
+
+			let add_address = build_message::<IdentityRef>(contract_acc_id.clone())
+				.call(|identity| identity.add_address(polkadot.clone(), encoded_address.clone()));
+
+			let _add_address_result = client
+				.call(&ink_e2e::alice(), add_address, 0, None)
+				.await
+				.expect("failed to add an address");
+
+			// Alice adds bob as a proxy that is allowed to transfer the
+			// ownership of her identity.
+			let bob_account_id = ink_e2e::account_id(ink_e2e::AccountKeyring::Bob);
+
+			let _call_data = vec![
+				// A value representing a `MultiAddress<AccountId32, _>`. We want the
+				// "Id" variant, and that will ultimately contain the
+				// bytes for our destination address
+				Value::unnamed_variant("Id", [Value::from_bytes(&bob_account_id)]),
+				// A value representing the amount we'd like to transfer.
+				Value::from_bytes("NonTransfer"),
+				Value::u128(0),
+			];
+
+			// TODO
+			/*
+			client
+				.runtime_call(&ink_e2e::alice(), "Proxy", "addProxy", call_data)
+				.await
+				.expect("add proxy failed");
+			*/
+
+			Ok(())
+		}
+	}
 }
