@@ -54,7 +54,7 @@ impl IdentityInfo {
 		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		ensure!(
-			self.addresses.clone().into_iter().find(|address| address.0 == network) == None,
+			!self.addresses.clone().into_iter().any(|address| address.0 == network),
 			Error::AddressAlreadyAdded
 		);
 		self.addresses.push((network, address));
@@ -169,6 +169,12 @@ mod identity {
 		network_id: NetworkId,
 	}
 
+	impl Default for Identity {
+		fn default() -> Self {
+			Self::new()
+		}
+	}
+
 	impl Identity {
 		#[ink(constructor)]
 		pub fn new() -> Self {
@@ -216,7 +222,7 @@ mod identity {
 			let identity_no = self.identity_of.get(caller).unwrap();
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.add_address(network.clone(), address.clone())?;
+			identity_info.add_address(network, address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressAdded { identity_no, network, address });
@@ -237,7 +243,7 @@ mod identity {
 			let identity_no = self.identity_of.get(caller).unwrap();
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.update_address(network.clone(), address.clone())?;
+			identity_info.update_address(network, address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressUpdated {
@@ -258,7 +264,7 @@ mod identity {
 			let identity_no = self.identity_of.get(caller).unwrap();
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.remove_address(network.clone())?;
+			identity_info.remove_address(network)?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressRemoved { identity_no, network });
@@ -682,7 +688,6 @@ mod identity {
 			// Name of the network should not be too long
 			let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
 			assert_eq!(identity.add_network(long_network_name), Err(Error::NetworkNameTooLong));
-
 		}
 
 		#[ink::test]
