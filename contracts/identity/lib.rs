@@ -107,7 +107,7 @@ mod identity {
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
 		recovery_account_of: Mapping<IdentityNo, AccountId>,
-		identity_count: IdentityNo,
+		latest_identity_no: IdentityNo,
 		network_name: Mapping<NetworkId, String>,
 		network_id_counter: NetworkId,
 		admin: AccountId,
@@ -191,7 +191,7 @@ mod identity {
 				number_to_identity: Default::default(),
 				owner_of: Default::default(),
 				identity_of: Default::default(),
-				identity_count: 0,
+				latest_identity_no: 0,
 				network_name: Default::default(),
 				network_id_counter: 0,
 				recovery_account_of: Default::default(),
@@ -218,14 +218,10 @@ mod identity {
 			self.identity_of.get(owner)
 		}
 
-		/// Returns the number of identities that exist.
-		///
-		/// NOTE: this count won't accurately show the number of existing
-		/// identities since this storage value doesn't get updated when someone
-		/// removes their identity.
+		/// Returns the latest `IdentityNo`.
 		#[ink(message)]
-		pub fn identity_count(&self) -> IdentityNo {
-			self.identity_count
+		pub fn latest_identity_no(&self) -> IdentityNo {
+			self.latest_identity_no
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.
@@ -237,7 +233,7 @@ mod identity {
 
 			ensure!(self.identity_of.get(caller).is_none(), Error::NotAllowed);
 
-			let identity_no = self.identity_count;
+			let identity_no = self.latest_identity_no;
 
 			let new_identity: IdentityInfo = Default::default();
 
@@ -245,7 +241,7 @@ mod identity {
 			self.identity_of.insert(caller, &identity_no);
 			self.owner_of.insert(identity_no, &caller);
 
-			self.identity_count = self.identity_count.saturating_add(1);
+			self.latest_identity_no = self.latest_identity_no.saturating_add(1);
 
 			self.env().emit_event(IdentityCreated { owner: caller, identity_no });
 
@@ -467,7 +463,7 @@ mod identity {
 			let identity = Identity::new();
 			let accounts = get_default_accounts();
 
-			assert_eq!(identity.identity_count, 0);
+			assert_eq!(identity.latest_identity_no, 0);
 			assert_eq!(identity.network_id_counter, 0);
 			assert_eq!(identity.admin, accounts.alice);
 		}
@@ -500,7 +496,7 @@ mod identity {
 				identity.number_to_identity.get(0).unwrap(),
 				IdentityInfo { addresses: Default::default() }
 			);
-			assert_eq!(identity.identity_count, 1);
+			assert_eq!(identity.latest_identity_no, 1);
 		}
 
 		#[ink::test]
