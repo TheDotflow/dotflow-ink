@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::{
-	prelude::{string::String, vec::Vec},
-	storage::traits::StorageLayout,
-};
+use ink::prelude::{string::String, vec::Vec};
+
+#[cfg(feature = "std")]
+use ink::storage::traits::StorageLayout;
 
 macro_rules! ensure {
 	( $x:expr, $y:expr $(,)? ) => {{
@@ -46,6 +46,7 @@ pub enum Error {
 	InvalidNetwork,
 	AddressSizeExceeded,
 	NetworkNameTooLong,
+	AlreadyIdentityOwner,
 }
 
 impl IdentityInfo {
@@ -106,7 +107,8 @@ mod identity {
 		number_to_identity: Mapping<IdentityNo, IdentityInfo>,
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
-		identity_count: u32,
+		recovery_account_of: Mapping<IdentityNo, AccountId>,
+		latest_identity_no: IdentityNo,
 		network_name: Mapping<NetworkId, String>,
 		network_id_counter: NetworkId,
 		admin: AccountId,
@@ -169,6 +171,13 @@ mod identity {
 		network_id: NetworkId,
 	}
 
+	#[ink(event)]
+	pub struct RecoveryAccountSet {
+		#[ink(topic)]
+		identity_no: IdentityNo,
+		recovery_account: AccountId,
+	}
+
 	impl Default for Identity {
 		fn default() -> Self {
 			Self::new()
@@ -183,22 +192,43 @@ mod identity {
 				number_to_identity: Default::default(),
 				owner_of: Default::default(),
 				identity_of: Default::default(),
-				identity_count: 0,
+				latest_identity_no: 0,
 				network_name: Default::default(),
 				network_id_counter: 0,
+				recovery_account_of: Default::default(),
 				admin: caller,
 			}
 		}
 
+		/// Returns the `IdentityInfo` of an identity that is associated with
+		/// the provided `IdentityNo`.
 		#[ink(message)]
-		/// Creates an identity and returns the `IdentityNo` A user can only
-		/// create one identity.
+		pub fn identity(&self, identity_no: IdentityNo) -> Option<IdentityInfo> {
+			self.number_to_identity.get(identity_no)
+		}
+
+		/// Returns the owner of an identity.
+		#[ink(message)]
+		pub fn owner_of(&self, identity_no: IdentityNo) -> Option<AccountId> {
+			self.owner_of.get(identity_no)
+		}
+
+		/// Returns the owner of an identity.
+		#[ink(message)]
+		pub fn identity_of(&self, owner: AccountId) -> Option<IdentityNo> {
+			self.identity_of.get(owner)
+		}
+
+		/// Creates an identity and returns the `IdentityNo`.
+		///
+		/// A user can only create one identity.
+		#[ink(message)]
 		pub fn create_identity(&mut self) -> Result<IdentityNo, Error> {
 			let caller = self.env().caller();
 
-			ensure!(self.identity_of.get(caller).is_none(), Error::NotAllowed);
+			ensure!(self.identity_of.get(caller).is_none(), Error::AlreadyIdentityOwner);
 
-			let identity_no = self.identity_count;
+			let identity_no = self.latest_identity_no;
 
 			let new_identity: IdentityInfo = Default::default();
 
@@ -206,14 +236,13 @@ mod identity {
 			self.identity_of.insert(caller, &identity_no);
 			self.owner_of.insert(identity_no, &caller);
 
-			self.identity_count = self.identity_count.saturating_add(1);
+			self.latest_identity_no = self.latest_identity_no.saturating_add(1);
 
 			self.env().emit_event(IdentityCreated { owner: caller, identity_no });
 
 			Ok(identity_no)
 		}
 
-		#[ink(message)]
 		/// Adds an address for a given network
 		pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -230,7 +259,6 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Updates the address of the given network
 		pub fn update_address(
 			&mut self,
@@ -255,7 +283,6 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Removes the address by network
 		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -272,8 +299,8 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
 		/// Removes an identity
+		#[ink(message)]
 		pub fn remove_identity(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -354,6 +381,51 @@ mod identity {
 			Ok(())
 		}
 
+		/// Sets the recovery account that will be able to change the ownership
+		/// of the identity.
+		///
+		/// Only callable by the identity owner.
+		#[ink(message)]
+		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+
+			self.recovery_account_of.insert(identity_no, &recovery_account);
+			self.env().emit_event(RecoveryAccountSet { identity_no, recovery_account });
+
+			Ok(())
+		}
+
+		/// Transfers the ownership of an identity to another account.
+		///
+		/// Only callable by the identity owner or any account that the identity
+		/// owner added as a proxy.
+		#[ink(message)]
+		pub fn transfer_ownership(
+			&mut self,
+			identity_no: IdentityNo,
+			new_owner: AccountId,
+		) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			let is_recovery_account = self.recovery_account_of.get(identity_no) == Some(caller);
+			let Some(identity_owner) = self.owner_of(identity_no) else { return Err(Error::NotAllowed) };
+
+			ensure!(identity_owner == caller || is_recovery_account, Error::NotAllowed);
+			// The new owner cannot already have an identity since we allow only
+			// one identity per account.
+			ensure!(self.identity_of(new_owner).is_none(), Error::AlreadyIdentityOwner);
+
+			self.identity_of.remove(identity_owner);
+			self.identity_of.insert(new_owner, &identity_no);
+
+			self.owner_of.insert(identity_no, &new_owner);
+
+			Ok(())
+		}
+
 		pub fn get_identity_info_of_caller(
 			&self,
 			caller: AccountId,
@@ -389,7 +461,7 @@ mod identity {
 			let identity = Identity::new();
 			let accounts = get_default_accounts();
 
-			assert_eq!(identity.identity_count, 0);
+			assert_eq!(identity.latest_identity_no, 0);
 			assert_eq!(identity.network_id_counter, 0);
 			assert_eq!(identity.admin, accounts.alice);
 		}
@@ -422,7 +494,7 @@ mod identity {
 				identity.number_to_identity.get(0).unwrap(),
 				IdentityInfo { addresses: Default::default() }
 			);
-			assert_eq!(identity.identity_count, 1);
+			assert_eq!(identity.latest_identity_no, 1);
 		}
 
 		#[ink::test]
@@ -432,7 +504,7 @@ mod identity {
 			assert!(identity.create_identity().is_ok());
 
 			// A user can create one identity only
-			assert_eq!(identity.create_identity(), Err(Error::NotAllowed));
+			assert_eq!(identity.create_identity(), Err(Error::AlreadyIdentityOwner));
 		}
 
 		#[ink::test]
@@ -582,8 +654,19 @@ mod identity {
 			assert_eq!(identity.remove_address(polkadot), Err(Error::NotAllowed));
 
 			set_caller::<DefaultEnvironment>(alice);
-
 			assert!(identity.remove_address(polkadot).is_ok());
+
+			assert_eq!(recorded_events().count(), 4);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::AddressRemoved(AddressRemoved { identity_no, network }) =
+				decoded_event else { panic!("AddressRemoved event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(network, polkadot);
+
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
 				IdentityInfo { addresses: vec![] }
@@ -626,6 +709,16 @@ mod identity {
 
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.remove_identity().is_ok());
+
+			assert_eq!(recorded_events().count(), 4);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::IdentityRemoved(IdentityRemoved { identity_no }) =
+				decoded_event else { panic!("IdentityRemoved event should be emitted") };
+
+			assert_eq!(identity_no, 0);
 
 			// Make sure all of the state got removed.
 			assert_eq!(identity.owner_of.get(0), None);
@@ -716,7 +809,6 @@ mod identity {
 			assert!(identity.network_name.get(0).is_none());
 
 			// Check emitted events
-			assert_eq!(recorded_events().count(), 2);
 			let last_event = recorded_events().last().unwrap();
 			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 				.expect("Failed to decode event");
@@ -774,6 +866,118 @@ mod identity {
 
 			assert_eq!(network_updated, polkadot_id);
 			assert_eq!(new_name, moonbeam);
+		}
+
+		#[ink::test]
+		fn set_recovery_account_works() {
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			// Only alice is able to set the recovery account for her identity.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.set_recovery_account(bob), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.set_recovery_account(bob).is_ok());
+
+			assert_eq!(recorded_events().count(), 2);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::RecoveryAccountSet(RecoveryAccountSet { identity_no, recovery_account }) =
+				decoded_event else { panic!("RecoveryAccountSet event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(recovery_account, bob);
+
+			assert_eq!(identity.recovery_account_of.get(identity_no), Some(bob));
+		}
+
+		#[ink::test]
+		fn transfer_ownership_works() {
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+			let identity_no = 0;
+			let polkadot = "Polkadot".to_string();
+
+			let mut identity = Identity::new();
+
+			let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+				panic!("Failed to add network")
+			};
+
+			assert!(identity.create_identity().is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: Default::default() }
+			);
+
+			// In reality this address would be encrypted before storing in the contract.
+			let encoded_address = alice.encode();
+
+			assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+			);
+
+			// Bob is not allowed to transfer the ownership. Only alice or the
+			// recovery can transfer the ownerhsip.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.transfer_ownership(identity_no, bob), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.transfer_ownership(identity_no, bob).is_ok());
+
+			// Bob is now the identity owner.
+			assert_eq!(identity.owner_of.get(0), Some(bob));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+			);
+			assert_eq!(identity.identity_of.get(alice), None);
+			assert_eq!(identity.identity_of.get(bob), Some(0));
+
+			// He will add alice as a recovery account.
+			set_caller::<DefaultEnvironment>(bob);
+			assert!(identity.set_recovery_account(alice).is_ok());
+
+			// Alice will transfer the ownership back to her account.
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.transfer_ownership(identity_no, alice).is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+			);
+			assert_eq!(identity.identity_of.get(alice), Some(0));
+			assert_eq!(identity.identity_of.get(bob), None);
+		}
+
+		#[ink::test]
+		fn transfer_ownership_fails_when_new_owner_has_an_identity() {
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+			let identity_no = 0;
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			set_caller::<DefaultEnvironment>(bob);
+			assert!(identity.create_identity().is_ok());
+
+			set_caller::<DefaultEnvironment>(alice);
+
+			assert_eq!(
+				identity.transfer_ownership(identity_no, bob),
+				Err(Error::AlreadyIdentityOwner)
+			);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
