@@ -107,7 +107,7 @@ mod identity {
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
 		recovery_account_of: Mapping<IdentityNo, AccountId>,
-		identity_count: u32,
+		identity_count: IdentityNo,
 		network_name: Mapping<NetworkId, String>,
 		network_id_counter: NetworkId,
 		admin: AccountId,
@@ -219,6 +219,10 @@ mod identity {
 		}
 
 		/// Returns the number of identities that exist.
+		///
+		/// NOTE: this count won't accurately show the number of existing
+		/// identities since this storage value doesn't get updated when someone
+		/// removes their identity.
 		#[ink(message)]
 		pub fn identity_count(&self) -> IdentityNo {
 			self.identity_count
