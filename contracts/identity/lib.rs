@@ -386,6 +386,10 @@ mod identity {
 			Ok(())
 		}
 
+		/// Sets the recovery account that will be able to change the ownership
+		/// of the identity.
+		///
+		/// Only callable by the identity owner.
 		#[ink(message)]
 		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
 			let caller = self.env().caller();
