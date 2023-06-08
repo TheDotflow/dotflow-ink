@@ -32,8 +32,8 @@ git clone https://github.com/TheDotflow/dotflow-ink.git
  ```
  3. Compile and run unit tests
 ```
-cargo build
 cd dotflow-ink/
+cargo build
 cargo test
 ```
 3. Build the contracts:
