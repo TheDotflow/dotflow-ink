@@ -404,13 +404,19 @@ mod identity {
 		/// Only callable by the identity owner or any account that the identity
 		/// owner added as a proxy.
 		#[ink(message)]
-		pub fn transfer_ownership(&mut self, new_owner: AccountId) -> Result<(), Error> {
+		pub fn transfer_ownership(
+			&mut self,
+			identity_no: IdentityNo,
+			new_owner: AccountId,
+		) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let is_recovery_account = self.recovery_account_of.get(identity_no) == Some(caller);
+			let Some(identity_owner) = self.owner_of(identity_no) else { return Err(Error::NotAllowed) };
 
-			self.identity_of.remove(caller);
+			ensure!(identity_owner == caller || is_recovery_account, Error::NotAllowed);
+
+			self.identity_of.remove(identity_owner);
 			self.identity_of.insert(new_owner, &identity_no);
 
 			self.owner_of.insert(identity_no, &new_owner);
@@ -891,9 +897,8 @@ mod identity {
 
 		#[ink::test]
 		fn transfer_ownership_works() {
-			let accounts = get_default_accounts();
-			let alice = accounts.alice;
-			let bob = accounts.bob;
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+			let identity_no = 0;
 			let polkadot = "Polkadot".to_string();
 
 			let mut identity = Identity::new();
@@ -919,13 +924,15 @@ mod identity {
 				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 			);
 
-			// Bob is not allowed to transfer the ownership.
+			// Bob is not allowed to transfer the ownership. Only alice or the
+			// recovery can transfer the ownerhsip.
 			set_caller::<DefaultEnvironment>(bob);
-			assert_eq!(identity.transfer_ownership(bob), Err(Error::NotAllowed));
+			assert_eq!(identity.transfer_ownership(identity_no, bob), Err(Error::NotAllowed));
 
 			set_caller::<DefaultEnvironment>(alice);
-			assert!(identity.transfer_ownership(bob).is_ok());
+			assert!(identity.transfer_ownership(identity_no, bob).is_ok());
 
+			// Bob is now the identity owner.
 			assert_eq!(identity.owner_of.get(0), Some(bob));
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
@@ -933,6 +940,22 @@ mod identity {
 			);
 			assert_eq!(identity.identity_of.get(alice), None);
 			assert_eq!(identity.identity_of.get(bob), Some(0));
+
+			// He will add alice as a recovery account.
+			set_caller::<DefaultEnvironment>(bob);
+			assert!(identity.set_recovery_account(alice).is_ok());
+
+			// Alice will transfer the ownership back to her account.
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.transfer_ownership(identity_no, alice).is_ok());
+
+			assert_eq!(identity.owner_of.get(0), Some(alice));
+			assert_eq!(
+				identity.number_to_identity.get(0).unwrap(),
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+			);
+			assert_eq!(identity.identity_of.get(alice), Some(0));
+			assert_eq!(identity.identity_of.get(bob), None);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
