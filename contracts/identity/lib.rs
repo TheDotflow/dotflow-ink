@@ -218,12 +218,6 @@ mod identity {
 			self.identity_of.get(owner)
 		}
 
-		/// Returns the latest `IdentityNo`.
-		#[ink(message)]
-		pub fn latest_identity_no(&self) -> IdentityNo {
-			self.latest_identity_no
-		}
-
 		/// Creates an identity and returns the `IdentityNo`.
 		///
 		/// A user can only create one identity.
