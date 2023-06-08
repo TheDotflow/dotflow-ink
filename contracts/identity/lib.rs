@@ -46,6 +46,7 @@ pub enum Error {
 	InvalidNetwork,
 	AddressSizeExceeded,
 	NetworkNameTooLong,
+	AlreadyIdentityOwner,
 }
 
 impl IdentityInfo {
@@ -225,7 +226,7 @@ mod identity {
 		pub fn create_identity(&mut self) -> Result<IdentityNo, Error> {
 			let caller = self.env().caller();
 
-			ensure!(self.identity_of.get(caller).is_none(), Error::NotAllowed);
+			ensure!(self.identity_of.get(caller).is_none(), Error::AlreadyIdentityOwner);
 
 			let identity_no = self.latest_identity_no;
 
@@ -413,6 +414,9 @@ mod identity {
 			let Some(identity_owner) = self.owner_of(identity_no) else { return Err(Error::NotAllowed) };
 
 			ensure!(identity_owner == caller || is_recovery_account, Error::NotAllowed);
+			// The new owner cannot already have an identity since we allow only
+			// one identity per account.
+			ensure!(self.identity_of(new_owner) == None, Error::AlreadyIdentityOwner);
 
 			self.identity_of.remove(identity_owner);
 			self.identity_of.insert(new_owner, &identity_no);
@@ -500,7 +504,7 @@ mod identity {
 			assert!(identity.create_identity().is_ok());
 
 			// A user can create one identity only
-			assert_eq!(identity.create_identity(), Err(Error::NotAllowed));
+			assert_eq!(identity.create_identity(), Err(Error::AlreadyIdentityOwner));
 		}
 
 		#[ink::test]
@@ -954,6 +958,26 @@ mod identity {
 			);
 			assert_eq!(identity.identity_of.get(alice), Some(0));
 			assert_eq!(identity.identity_of.get(bob), None);
+		}
+
+		#[ink::test]
+		fn transfer_ownership_fails_when_new_owner_has_an_identity() {
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+			let identity_no = 0;
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			set_caller::<DefaultEnvironment>(bob);
+			assert!(identity.create_identity().is_ok());
+
+			set_caller::<DefaultEnvironment>(alice);
+
+			assert_eq!(
+				identity.transfer_ownership(identity_no, bob),
+				Err(Error::AlreadyIdentityOwner)
+			);
 		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
