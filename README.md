@@ -3,7 +3,7 @@
 
 ## Inspiration
 
-Dotflow is a project that has the goal to achieve account abstraction. We want to achieve this by introducing a new entity called an identity. Each user will be able to create their own identity which can hold all their addresses they have per each different blockchain.
+Dotflow is a project that has the goal to achieve account abstraction. We want to achieve this by introducing a new entity called **identity**. Each user will be able to create their own identity which can hold all their addresses they have per each different blockchain.
 
 Users will also be able to create their own address book which can contain the identities they most frequently communicate with.
 
@@ -32,6 +32,7 @@ git clone https://github.com/TheDotflow/dotflow-ink.git
  ```
  3. Compile and run unit tests
 ```
+cargo build
 cd dotflow-ink/
 cargo test
 ```
