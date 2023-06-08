@@ -416,7 +416,7 @@ mod identity {
 			ensure!(identity_owner == caller || is_recovery_account, Error::NotAllowed);
 			// The new owner cannot already have an identity since we allow only
 			// one identity per account.
-			ensure!(self.identity_of(new_owner) == None, Error::AlreadyIdentityOwner);
+			ensure!(self.identity_of(new_owner).is_none(), Error::AlreadyIdentityOwner);
 
 			self.identity_of.remove(identity_owner);
 			self.identity_of.insert(new_owner, &identity_no);
