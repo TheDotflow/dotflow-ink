@@ -170,6 +170,7 @@ mod identity {
 		network_id: NetworkId,
 	}
 
+	#[ink(event)]
 	pub struct RecoveryAccountSet {
 		#[ink(topic)]
 		identity_no: IdentityNo,
@@ -193,6 +194,7 @@ mod identity {
 				identity_count: 0,
 				network_name: Default::default(),
 				network_id_counter: 0,
+				recovery_account_of: Default::default(),
 				admin: caller,
 			}
 		}
@@ -646,9 +648,7 @@ mod identity {
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.remove_address(polkadot).is_ok());
 
-			assert!(identity.remove_address(polkadot.clone()).is_ok());
-
-			assert_eq!(recorded_events().count(), 3);
+			assert_eq!(recorded_events().count(), 4);
 			let last_event = recorded_events().last().unwrap();
 			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 				.expect("Failed to decode event");
@@ -702,7 +702,7 @@ mod identity {
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.remove_identity().is_ok());
 
-			assert_eq!(recorded_events().count(), 3);
+			assert_eq!(recorded_events().count(), 4);
 			let last_event = recorded_events().last().unwrap();
 			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 				.expect("Failed to decode event");
@@ -801,6 +801,10 @@ mod identity {
 			assert!(identity.network_name.get(0).is_none());
 
 			// Check emitted events
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
 			let Event::NetworkRemoved(NetworkRemoved { network_id: removed_network_id }) = decoded_event else { panic!("NetworkRemoved event should be emitted") };
 
 			assert_eq!(removed_network_id, network_id);
@@ -894,6 +898,10 @@ mod identity {
 
 			let mut identity = Identity::new();
 
+			let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+				panic!("Failed to add network")
+			};
+
 			assert!(identity.create_identity().is_ok());
 
 			assert_eq!(identity.owner_of.get(0), Some(alice));
@@ -905,10 +913,10 @@ mod identity {
 			// In reality this address would be encrypted before storing in the contract.
 			let encoded_address = alice.encode();
 
-			assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
+			assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
-				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 			);
 
 			// Bob is not allowed to transfer the ownership.
@@ -921,7 +929,7 @@ mod identity {
 			assert_eq!(identity.owner_of.get(0), Some(bob));
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
-				IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
+				IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 			);
 			assert_eq!(identity.identity_of.get(alice), None);
 			assert_eq!(identity.identity_of.get(bob), Some(0));
