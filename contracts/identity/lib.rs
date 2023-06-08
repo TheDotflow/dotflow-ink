@@ -169,8 +169,8 @@ mod identity {
 		#[ink(topic)]
 		network_id: NetworkId,
 	}
-  
-  pub struct RecoveryAccountSet {
+
+	pub struct RecoveryAccountSet {
 		#[ink(topic)]
 		identity_no: IdentityNo,
 		recovery_account: AccountId,
@@ -180,7 +180,7 @@ mod identity {
 		fn default() -> Self {
 			Self::new()
 		}
-  }
+	}
 
 	impl Identity {
 		#[ink(constructor)]
@@ -248,7 +248,7 @@ mod identity {
 
 		/// Adds an address for a given network
 		pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
-      let caller = self.env().caller();
+			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
 			let identity_no = self.identity_of.get(caller).unwrap();
@@ -384,8 +384,8 @@ mod identity {
 			Ok(())
 		}
 
-    #[ink(message)]
-    pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
+		#[ink(message)]
+		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
@@ -393,11 +393,11 @@ mod identity {
 
 			self.recovery_account_of.insert(identity_no, &recovery_account);
 			self.env().emit_event(RecoveryAccountSet { identity_no, recovery_account });
-      
-      Ok(())
-    }
-    
-    /// Transfers the ownership of an identity to another account.
+
+			Ok(())
+		}
+
+		/// Transfers the ownership of an identity to another account.
 		///
 		/// Only callable by the identity owner or any account that the identity
 		/// owner added as a proxy.
@@ -412,9 +412,9 @@ mod identity {
 			self.identity_of.insert(new_owner, &identity_no);
 
 			self.owner_of.insert(identity_no, &new_owner);
-      
-      Ok(())
-    }
+
+			Ok(())
+		}
 
 		pub fn get_identity_info_of_caller(
 			&self,
@@ -644,7 +644,7 @@ mod identity {
 			assert_eq!(identity.remove_address(polkadot), Err(Error::NotAllowed));
 
 			set_caller::<DefaultEnvironment>(alice);
-      assert!(identity.remove_address(polkadot).is_ok());
+			assert!(identity.remove_address(polkadot).is_ok());
 
 			assert!(identity.remove_address(polkadot.clone()).is_ok());
 
@@ -801,10 +801,10 @@ mod identity {
 			assert!(identity.network_name.get(0).is_none());
 
 			// Check emitted events
-      let Event::NetworkRemoved(NetworkRemoved { network_id: removed_network_id }) = decoded_event else { panic!("NetworkRemoved event should be emitted") };
+			let Event::NetworkRemoved(NetworkRemoved { network_id: removed_network_id }) = decoded_event else { panic!("NetworkRemoved event should be emitted") };
 
 			assert_eq!(removed_network_id, network_id);
-    }
+		}
 
 		#[ink::test]
 		fn update_network_works() {
@@ -855,9 +855,9 @@ mod identity {
 			assert_eq!(network_updated, polkadot_id);
 			assert_eq!(new_name, moonbeam);
 		}
-    
-    #[ink::test]
-    fn set_recovery_account_works() {
+
+		#[ink::test]
+		fn set_recovery_account_works() {
 			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
 
 			let mut identity = Identity::new();
@@ -870,22 +870,22 @@ mod identity {
 
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.set_recovery_account(bob).is_ok());
-      
-      assert_eq!(recorded_events().count(), 2);
+
+			assert_eq!(recorded_events().count(), 2);
 			let last_event = recorded_events().last().unwrap();
 			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 				.expect("Failed to decode event");
-      
-      let Event::RecoveryAccountSet(RecoveryAccountSet { identity_no, recovery_account }) =
+
+			let Event::RecoveryAccountSet(RecoveryAccountSet { identity_no, recovery_account }) =
 				decoded_event else { panic!("RecoveryAccountSet event should be emitted") };
 
 			assert_eq!(identity_no, 0);
 			assert_eq!(recovery_account, bob);
 
 			assert_eq!(identity.recovery_account_of.get(identity_no), Some(bob));
-    }
-    
-    #[ink::test]
+		}
+
+		#[ink::test]
 		fn transfer_ownership_works() {
 			let accounts = get_default_accounts();
 			let alice = accounts.alice;
@@ -925,7 +925,7 @@ mod identity {
 			);
 			assert_eq!(identity.identity_of.get(alice), None);
 			assert_eq!(identity.identity_of.get(bob), Some(0));
-    }
+		}
 
 		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 			default_accounts::<DefaultEnvironment>()
