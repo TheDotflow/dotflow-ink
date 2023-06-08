@@ -99,6 +99,7 @@ mod identity {
 		number_to_identity: Mapping<IdentityNo, IdentityInfo>,
 		owner_of: Mapping<IdentityNo, AccountId>,
 		identity_of: Mapping<AccountId, IdentityNo>,
+		recovery_account_of: Mapping<IdentityNo, AccountId>,
 		identity_count: u32,
 	}
 
@@ -139,6 +140,13 @@ mod identity {
 		identity_no: IdentityNo,
 	}
 
+	#[ink(event)]
+	pub struct RecoveryAccountSet {
+		#[ink(topic)]
+		identity_no: IdentityNo,
+		recovery_account: AccountId,
+	}
+
 	impl Identity {
 		#[ink(constructor)]
 		pub fn new() -> Self {
@@ -162,6 +170,12 @@ mod identity {
 		#[ink(message)]
 		pub fn identity_of(&self, owner: AccountId) -> Option<IdentityNo> {
 			self.identity_of.get(owner)
+		}
+
+		/// Returns the number of identities that exist.
+		#[ink(message)]
+		pub fn identity_count(&self) -> IdentityNo {
+			self.identity_count
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.
@@ -256,6 +270,19 @@ mod identity {
 			self.number_to_identity.remove(identity_no);
 
 			self.env().emit_event(IdentityRemoved { identity_no });
+
+			Ok(())
+		}
+
+		#[ink(message)]
+		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
+			let caller = self.env().caller();
+			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
+
+			let identity_no = self.identity_of.get(caller).unwrap();
+
+			self.recovery_account_of.insert(identity_no, &recovery_account);
+			self.env().emit_event(RecoveryAccountSet { identity_no, recovery_account });
 
 			Ok(())
 		}
@@ -508,6 +535,18 @@ mod identity {
 			set_caller::<DefaultEnvironment>(alice);
 
 			assert!(identity.remove_address(polkadot.clone()).is_ok());
+
+			assert_eq!(recorded_events().count(), 3);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::AddressRemoved(AddressRemoved { identity_no, network }) =
+				decoded_event else { panic!("AddressRemoved event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(network, polkadot);
+
 			assert_eq!(
 				identity.number_to_identity.get(0).unwrap(),
 				IdentityInfo { addresses: vec![] }
@@ -551,6 +590,16 @@ mod identity {
 			set_caller::<DefaultEnvironment>(alice);
 			assert!(identity.remove_identity().is_ok());
 
+			assert_eq!(recorded_events().count(), 3);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::IdentityRemoved(IdentityRemoved { identity_no }) =
+				decoded_event else { panic!("IdentityRemoved event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+
 			// Make sure all of the state got removed.
 			assert_eq!(identity.owner_of.get(0), None);
 			assert_eq!(identity.identity_of.get(alice), None);
@@ -571,6 +620,35 @@ mod identity {
 				identity.add_address(polkadot.clone(), polkadot_address.clone()),
 				Err(Error::AddressSizeExceeded)
 			);
+		}
+
+		#[ink::test]
+		fn set_recovery_account_works() {
+			let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
+
+			let mut identity = Identity::new();
+
+			assert!(identity.create_identity().is_ok());
+
+			// Only alice is able to set the recovery account for her identity.
+			set_caller::<DefaultEnvironment>(bob);
+			assert_eq!(identity.set_recovery_account(bob), Err(Error::NotAllowed));
+
+			set_caller::<DefaultEnvironment>(alice);
+			assert!(identity.set_recovery_account(bob).is_ok());
+
+			assert_eq!(recorded_events().count(), 2);
+			let last_event = recorded_events().last().unwrap();
+			let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+				.expect("Failed to decode event");
+
+			let Event::RecoveryAccountSet(RecoveryAccountSet { identity_no, recovery_account }) =
+				decoded_event else { panic!("RecoveryAccountSet event should be emitted") };
+
+			assert_eq!(identity_no, 0);
+			assert_eq!(recovery_account, bob);
+
+			assert_eq!(identity.recovery_account_of.get(identity_no), Some(bob));
 		}
 
 		#[ink::test]
@@ -621,66 +699,5 @@ mod identity {
 	}
 
 	#[cfg(all(test, feature = "e2e-tests"))]
-	mod e2e_tests {
-		use super::*;
-		use ink_e2e::{build_message, subxt::dynamic::Value};
-		use scale::Encode;
-		type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-		#[ink_e2e::test]
-		async fn transfer_ownership_works() -> E2EResult<()> {
-			let constructor = IdentityRef::new();
-
-			let contract_acc_id = client
-				.instantiate("identity", &ink_e2e::alice(), constructor, 0, None)
-				.await
-				.expect("instantiation failed")
-				.account_id;
-
-			let create_identity = build_message::<IdentityRef>(contract_acc_id.clone())
-				.call(|identity| identity.create_identity());
-
-			// Alice creates an identity.
-			let _create_result = client
-				.call(&ink_e2e::alice(), create_identity, 0, None)
-				.await
-				.expect("identity creation failed");
-
-			// Adds her polkadot address to her identity.
-			let polkadot = "Polkadot".to_string();
-			let encoded_address = ink_e2e::account_id(ink_e2e::AccountKeyring::Alice).encode();
-
-			let add_address = build_message::<IdentityRef>(contract_acc_id.clone())
-				.call(|identity| identity.add_address(polkadot.clone(), encoded_address.clone()));
-
-			let _add_address_result = client
-				.call(&ink_e2e::alice(), add_address, 0, None)
-				.await
-				.expect("failed to add an address");
-
-			// Alice adds bob as a proxy that is allowed to transfer the
-			// ownership of her identity.
-			let bob_account_id = ink_e2e::account_id(ink_e2e::AccountKeyring::Bob);
-
-			let _call_data = vec![
-				// A value representing a `MultiAddress<AccountId32, _>`. We want the
-				// "Id" variant, and that will ultimately contain the
-				// bytes for our destination address
-				Value::unnamed_variant("Id", [Value::from_bytes(&bob_account_id)]),
-				// A value representing the amount we'd like to transfer.
-				Value::from_bytes("NonTransfer"),
-				Value::u128(0),
-			];
-
-			// TODO
-			/*
-			client
-				.runtime_call(&ink_e2e::alice(), "Proxy", "addProxy", call_data)
-				.await
-				.expect("add proxy failed");
-			*/
-
-			Ok(())
-		}
-	}
+	mod e2e_tests {}
 }
