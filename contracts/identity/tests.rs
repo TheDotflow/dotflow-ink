@@ -13,17 +13,16 @@ type Event = <Identity as ::ink::reflect::ContractEventBase>::Type;
 #[ink::test]
 fn constructor_works() {
 	let identity = Identity::new();
-	let accounts = get_default_accounts();
+	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
 
 	assert_eq!(identity.latest_identity_no, 0);
 	assert_eq!(identity.network_id_counter, 0);
-	assert_eq!(identity.admin, accounts.alice);
+	assert_eq!(identity.admin, alice);
 }
 
 #[ink::test]
 fn create_identity_works() {
-	let accounts = get_default_accounts();
-	let alice = accounts.alice;
+	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
 
 	let mut identity = Identity::new();
 
