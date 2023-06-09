@@ -313,7 +313,7 @@ fn add_network_works() {
 	assert_eq!(name, polkadot);
 
 	// Check storage items updated
-	assert_eq!(identity.network_name.get(network_id), Some(name.clone()));
+	assert_eq!(identity.network_name_of.get(network_id), Some(name.clone()));
 	assert_eq!(identity.network_id_counter, 1);
 
 	// Only the contract creator can add a new network
@@ -350,7 +350,7 @@ fn remove_network_works() {
 	set_caller::<DefaultEnvironment>(alice);
 	assert!(identity.remove_network(network_id).is_ok());
 
-	assert!(identity.network_name.get(0).is_none());
+	assert!(identity.network_name_of.get(0).is_none());
 
 	// Check emitted events
 	let last_event = recorded_events().last().unwrap();
@@ -516,6 +516,29 @@ fn transfer_ownership_fails_when_new_owner_has_an_identity() {
 	set_caller::<DefaultEnvironment>(alice);
 
 	assert_eq!(identity.transfer_ownership(identity_no, bob), Err(Error::AlreadyIdentityOwner));
+}
+
+#[ink::test]
+fn init_with_networks_works() {
+	let polkadot = "Polkadot".to_string();
+	let kusama = "Kusama".to_string();
+	let moonbeam = "Moonbeam".to_string();
+	let astar = "Astar".to_string();
+	let networks: Vec<String> =
+		vec![polkadot.clone(), kusama.clone(), moonbeam.clone(), astar.clone()];
+	let identity = Identity::init_with_networks(networks);
+	assert_eq!(identity.network_id_counter, 4);
+	assert_eq!(identity.network_name_of(0), Some(polkadot));
+	assert_eq!(identity.network_name_of(1), Some(kusama));
+	assert_eq!(identity.network_name_of(2), Some(moonbeam));
+	assert_eq!(identity.network_name_of(3), Some(astar));
+}
+
+#[ink::test]
+#[should_panic(expected = "Network name is too long")]
+fn init_with_networks_fail() {
+	let very_long_name = String::from_utf8(vec!['a' as u8; 150]).unwrap();
+	Identity::init_with_networks(vec![very_long_name]);
 }
 
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
