@@ -180,6 +180,7 @@ mod identity {
 			self.identity_of.get(owner)
 		}
 
+                /// Returns the network name that is associated with the specified `NetworkId`.
 		#[ink(message)]
 		pub fn network_name_of(&self, network_id: NetworkId) -> Option<String> {
 			self.network_name.get(network_id)
