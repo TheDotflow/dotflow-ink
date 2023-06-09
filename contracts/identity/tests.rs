@@ -9,15 +9,6 @@ use scale::Encode;
 
 type Event = <Identity as ::ink::reflect::ContractEventBase>::Type;
 
-#[ink::test]
-fn constructor_works() {
-	let identity = Identity::new();
-	let accounts = get_default_accounts();
-	assert_eq!(identity.latest_identity_no, 0);
-	assert_eq!(identity.network_id_counter, 0);
-	assert_eq!(identity.admin, accounts.alice);
-}
-
 /// We test if the constructor does its job.
 #[ink::test]
 fn constructor_works() {
