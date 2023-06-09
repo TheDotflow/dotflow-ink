@@ -48,7 +48,7 @@ mod identity {
 		pub(crate) identity_of: Mapping<AccountId, IdentityNo>,
 		pub(crate) recovery_account_of: Mapping<IdentityNo, AccountId>,
 		pub(crate) latest_identity_no: IdentityNo,
-		pub(crate) network_name: Mapping<NetworkId, String>,
+		pub(crate) network_name_of: Mapping<NetworkId, String>,
 		pub(crate) network_id_counter: NetworkId,
 		pub(crate) admin: AccountId,
 	}
@@ -132,7 +132,7 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_name: Default::default(),
+				network_name_of: Default::default(),
 				network_id_counter: 0,
 				recovery_account_of: Default::default(),
 				admin: caller,
@@ -141,11 +141,11 @@ mod identity {
 
 		#[ink(constructor)]
 		pub fn init_with_networks(networks: Vec<String>) -> Self {
-			let mut network_name = Mapping::default();
+			let mut network_name_of = Mapping::default();
 
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
-				network_name.insert(network_id as NetworkId, &network);
+				network_name_of.insert(network_id as NetworkId, &network);
 			});
 
 			let caller = Self::env().caller();
@@ -154,7 +154,7 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_name,
+				network_name_of,
 				network_id_counter: networks.len() as NetworkId,
 				recovery_account_of: Default::default(),
 				admin: caller,
@@ -180,10 +180,10 @@ mod identity {
 			self.identity_of.get(owner)
 		}
 
-                /// Returns the network name that is associated with the specified `NetworkId`.
+		/// Returns the network name that is associated with the specified `NetworkId`.
 		#[ink(message)]
 		pub fn network_name_of(&self, network_id: NetworkId) -> Option<String> {
-			self.network_name.get(network_id)
+			self.network_name_of.get(network_id)
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.
@@ -295,7 +295,7 @@ mod identity {
 
 			let network_id = self.network_id_counter;
 
-			self.network_name.insert(network_id, &name);
+			self.network_name_of.insert(network_id, &name);
 
 			self.network_id_counter = self.network_id_counter.saturating_add(1);
 
@@ -319,11 +319,11 @@ mod identity {
 			ensure!(new_name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
 			// Ensure that the given network id exists
-			let old_name = self.network_name.get(network_id);
+			let old_name = self.network_name_of.get(network_id);
 			ensure!(old_name.is_some(), Error::InvalidNetwork);
 
 			// Update storage items
-			self.network_name.insert(network_id, &new_name);
+			self.network_name_of.insert(network_id, &new_name);
 
 			self.env().emit_event(NetworkUpdated { network_id, name: new_name });
 
@@ -338,10 +338,10 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given `network_id` exists
-			let name = self.network_name.get(network_id);
+			let name = self.network_name_of.get(network_id);
 			ensure!(name.is_some(), Error::InvalidNetwork);
 
-			self.network_name.remove(network_id);
+			self.network_name_of.remove(network_id);
 
 			self.env().emit_event(NetworkRemoved { network_id });
 

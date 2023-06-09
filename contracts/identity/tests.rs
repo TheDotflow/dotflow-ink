@@ -313,7 +313,7 @@ fn add_network_works() {
 	assert_eq!(name, polkadot);
 
 	// Check storage items updated
-	assert_eq!(identity.network_name.get(network_id), Some(name.clone()));
+	assert_eq!(identity.network_name_of.get(network_id), Some(name.clone()));
 	assert_eq!(identity.network_id_counter, 1);
 
 	// Only the contract creator can add a new network
@@ -350,7 +350,7 @@ fn remove_network_works() {
 	set_caller::<DefaultEnvironment>(alice);
 	assert!(identity.remove_network(network_id).is_ok());
 
-	assert!(identity.network_name.get(0).is_none());
+	assert!(identity.network_name_of.get(0).is_none());
 
 	// Check emitted events
 	let last_event = recorded_events().last().unwrap();
