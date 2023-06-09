@@ -142,14 +142,12 @@ mod identity {
 		#[ink(constructor)]
 		pub fn init_with_networks(networks: Vec<String>) -> Self {
 			let mut network_name = Mapping::default();
-			let mut network_id_counter: NetworkId = 0;
 
-			for network in &networks {
+			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
+				network_name.insert(network_id as NetworkId, &network);
+			});
 
-				network_name.insert(network_id_counter, network);
-				network_id_counter = network_id_counter.saturating_add(1);
-			}
 			let caller = Self::env().caller();
 			Self {
 				number_to_identity: Default::default(),
@@ -157,7 +155,7 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				network_name,
-				network_id_counter,
+				network_id_counter: networks.len() as NetworkId,
 				recovery_account_of: Default::default(),
 				admin: caller,
 			}
