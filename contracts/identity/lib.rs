@@ -139,6 +139,30 @@ mod identity {
 			}
 		}
 
+		#[ink(constructor)]
+		pub fn init_with_networks(networks: Vec<String>) -> Self {
+			let mut network_name = Mapping::default();
+			let mut network_id_counter: NetworkId = 0;
+
+			for network in &networks {
+				assert!(network.len() <= NETWORK_NAME_LIMIT);
+
+				network_name.insert(network_id_counter, network);
+				network_id_counter = network_id_counter.saturating_add(1);
+			}
+			let caller = Self::env().caller();
+			Self {
+				number_to_identity: Default::default(),
+				owner_of: Default::default(),
+				identity_of: Default::default(),
+				latest_identity_no: 0,
+				network_name,
+				network_id_counter,
+				recovery_account_of: Default::default(),
+				admin: caller,
+			}
+		}
+
 		/// Returns the `IdentityInfo` of an identity that is associated with
 		/// the provided `IdentityNo`.
 		#[ink(message)]
@@ -156,6 +180,11 @@ mod identity {
 		#[ink(message)]
 		pub fn identity_of(&self, owner: AccountId) -> Option<IdentityNo> {
 			self.identity_of.get(owner)
+		}
+
+		#[ink(message)]
+		pub fn network_name_of(&self, network_id: NetworkId) -> Option<String> {
+			self.network_name.get(network_id)
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.

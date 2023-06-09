@@ -518,6 +518,29 @@ fn transfer_ownership_fails_when_new_owner_has_an_identity() {
 	assert_eq!(identity.transfer_ownership(identity_no, bob), Err(Error::AlreadyIdentityOwner));
 }
 
+#[ink::test]
+fn init_with_networks_works() {
+	let polkadot = "Polkadot".to_string();
+	let kusama = "Kusama".to_string();
+	let moonbeam = "Moonbeam".to_string();
+	let astar = "Astar".to_string();
+	let networks: Vec<String> =
+		vec![polkadot.clone(), kusama.clone(), moonbeam.clone(), astar.clone()];
+	let identity = Identity::init_with_networks(networks);
+	assert_eq!(identity.network_id_counter, 4);
+	assert_eq!(identity.network_name_of(0), Some(polkadot));
+	assert_eq!(identity.network_name_of(1), Some(kusama));
+	assert_eq!(identity.network_name_of(2), Some(moonbeam));
+	assert_eq!(identity.network_name_of(3), Some(astar));
+}
+
+#[ink::test]
+#[should_panic]
+fn init_with_networks_fail() {
+	let very_long_name = String::from_utf8(vec!['a' as u8; 150]).unwrap();
+	Identity::init_with_networks(vec![very_long_name]);
+}
+
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 	default_accounts::<DefaultEnvironment>()
 }
