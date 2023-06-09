@@ -535,7 +535,7 @@ fn init_with_networks_works() {
 }
 
 #[ink::test]
-#[should_panic]
+#[should_panic(expected = "Network name is too long")]
 fn init_with_networks_fail() {
 	let very_long_name = String::from_utf8(vec!['a' as u8; 150]).unwrap();
 	Identity::init_with_networks(vec![very_long_name]);

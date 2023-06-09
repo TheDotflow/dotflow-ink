@@ -145,7 +145,7 @@ mod identity {
 			let mut network_id_counter: NetworkId = 0;
 
 			for network in &networks {
-				assert!(network.len() <= NETWORK_NAME_LIMIT);
+				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
 
 				network_name.insert(network_id_counter, network);
 				network_id_counter = network_id_counter.saturating_add(1);
