@@ -1,6 +1,6 @@
 /// Types used in the identity contract.
 use crate::{ensure, Error, ADDRESS_SIZE_LIMIT};
-
+use ink::prelude::vec::Vec;
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
