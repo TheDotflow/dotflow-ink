@@ -572,7 +572,7 @@ fn getting_transaction_destination_works() {
 
 	assert_eq!(identity.transaction_destination(identity_no, polkadot_id), Ok(encoded_address));
 
-	// Fails since the provided identity no does not exist.
+	// Fails since the provided `identity_no` does not exist.
 	assert_eq!(identity.transaction_destination(42, polkadot_id), Err(Error::IdentityDoesntExist));
 
 	// Fails because alice does not have an address on the Moonbeam network.
@@ -581,7 +581,10 @@ fn getting_transaction_destination_works() {
         panic!("Failed to add network")
     };
 
-	assert_eq!(identity.transaction_destination(42, moonbeam_id), Err(Error::IdentityDoesntExist));
+	assert_eq!(
+		identity.transaction_destination(identity_no, moonbeam_id),
+		Err(Error::InvalidNetwork)
+	);
 }
 
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
