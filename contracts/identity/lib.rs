@@ -185,6 +185,24 @@ mod identity {
 			self.network_name_of.get(network_id)
 		}
 
+		/// Returns the destination address of a transaction that needs to be
+		/// routed to the specified identity on the specified network.
+		#[ink(message)]
+		pub fn transaction_destination(
+			&self,
+			receiver: IdentityNo,
+			network: NetworkId,
+		) -> Result<Address, Error> {
+			ensure!(self.number_to_identity.get(receiver).is_some(), Error::IdentityDoesntExist);
+
+			let receiver_identity = self.number_to_identity.get(receiver).unwrap();
+
+			match receiver_identity.addresses.into_iter().find(|(id, _)| *id == network) {
+				Some((_, address)) => Ok(address),
+				None => Err(Error::InvalidNetwork),
+			}
+		}
+
 		/// Creates an identity and returns the `IdentityNo`.
 		///
 		/// A user can only create one identity.
