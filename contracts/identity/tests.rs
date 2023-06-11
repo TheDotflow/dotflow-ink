@@ -541,6 +541,49 @@ fn init_with_networks_fail() {
 	Identity::init_with_networks(vec![very_long_name]);
 }
 
+#[ink::test]
+fn getting_transaction_destination_works() {
+	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
+	let identity_no = 0;
+	let polkadot = "Polkadot".to_string();
+
+	let mut identity = Identity::new();
+
+	let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+        panic!("Failed to add network")
+    };
+
+	assert!(identity.create_identity().is_ok());
+
+	assert_eq!(identity.owner_of.get(0), Some(alice));
+	assert_eq!(
+		identity.number_to_identity.get(0).unwrap(),
+		IdentityInfo { addresses: Default::default() }
+	);
+
+	// In reality this address would be encrypted before storing in the contract.
+	let encoded_address = alice.encode();
+
+	assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
+	assert_eq!(
+		identity.number_to_identity.get(0).unwrap(),
+		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+	);
+
+	assert_eq!(identity.transaction_destination(identity_no, polkadot_id), Ok(encoded_address));
+
+	// Fails since the provided identity no does not exist.
+	assert_eq!(identity.transaction_destination(42, polkadot_id), Err(Error::IdentityDoesntExist));
+
+	// Fails because alice does not have an address on the Moonbeam network.
+	let moonbeam = "Moonbeam".to_string();
+	let Ok(moonbeam_id) = identity.add_network(moonbeam.clone()) else {
+        panic!("Failed to add network")
+    };
+
+	assert_eq!(identity.transaction_destination(42, moonbeam_id), Err(Error::IdentityDoesntExist));
+}
+
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 	default_accounts::<DefaultEnvironment>()
 }
