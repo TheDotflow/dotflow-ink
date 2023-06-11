@@ -210,6 +210,7 @@ mod identity {
 		}
 
 		/// Adds an address for a given network
+		#[ink(message)]
 		pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
@@ -226,6 +227,7 @@ mod identity {
 		}
 
 		/// Updates the address of the given network
+		#[ink(message)]
 		pub fn update_address(
 			&mut self,
 			network: NetworkId,
@@ -250,6 +252,7 @@ mod identity {
 		}
 
 		/// Removes the address by network
+		#[ink(message)]
 		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
