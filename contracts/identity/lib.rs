@@ -185,7 +185,7 @@ mod identity {
 			self.network_name_of.get(network_id)
 		}
 
-		/// Return the destination address of a transaction that needs to be
+		/// Returns the destination address of a transaction that needs to be
 		/// routed to the specified identity on the specified network.
 		#[ink(message)]
 		pub fn transaction_destination(
