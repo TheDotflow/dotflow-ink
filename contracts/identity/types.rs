@@ -10,7 +10,7 @@ pub type IdentityNo = u32;
 /// We want to keep the address type very generic since we want to support any
 /// address format. We won't actually keep the addresses in the contract itself.
 /// Before storing them, we'll encrypt them to ensure privacy.
-pub type Address = Vec<u8>;
+pub type NetworkAddress = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
 pub type NetworkId = u32;
@@ -19,12 +19,16 @@ pub type NetworkId = u32;
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct IdentityInfo {
 	/// Each address is associated with a specific blockchain.
-	pub(crate) addresses: Vec<(NetworkId, Address)>,
+	pub(crate) addresses: Vec<(NetworkId, NetworkAddress)>,
 }
 
 impl IdentityInfo {
 	/// Adds an address for the given network
-	pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
+	pub fn add_address(
+		&mut self,
+		network: NetworkId,
+		address: NetworkAddress,
+	) -> Result<(), Error> {
 		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		ensure!(
@@ -40,7 +44,7 @@ impl IdentityInfo {
 	pub fn update_address(
 		&mut self,
 		network: NetworkId,
-		new_address: Address,
+		new_address: NetworkAddress,
 	) -> Result<(), Error> {
 		ensure!(new_address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 

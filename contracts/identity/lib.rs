@@ -65,7 +65,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
 		pub(crate) network: NetworkId,
-		pub(crate) address: Address,
+		pub(crate) address: NetworkAddress,
 	}
 
 	#[ink(event)]
@@ -73,7 +73,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
 		pub(crate) network: NetworkId,
-		pub(crate) updated_address: Address,
+		pub(crate) updated_address: NetworkAddress,
 	}
 
 	#[ink(event)]
@@ -192,7 +192,7 @@ mod identity {
 			&self,
 			receiver: IdentityNo,
 			network: NetworkId,
-		) -> Result<Address, Error> {
+		) -> Result<NetworkAddress, Error> {
 			ensure!(self.number_to_identity.get(receiver).is_some(), Error::IdentityDoesntExist);
 
 			let receiver_identity = self.number_to_identity.get(receiver).unwrap();
@@ -229,7 +229,11 @@ mod identity {
 
 		/// Adds an address for a given network
 		#[ink(message)]
-		pub fn add_address(&mut self, network: NetworkId, address: Address) -> Result<(), Error> {
+		pub fn add_address(
+			&mut self,
+			network: NetworkId,
+			address: NetworkAddress,
+		) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
@@ -249,7 +253,7 @@ mod identity {
 		pub fn update_address(
 			&mut self,
 			network: NetworkId,
-			address: Address,
+			address: NetworkAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
