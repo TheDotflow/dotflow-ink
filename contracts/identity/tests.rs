@@ -17,8 +17,9 @@ fn constructor_works() {
 	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
 
 	assert_eq!(identity.latest_identity_no, 0);
-	assert_eq!(identity.network_id_counter, 0);
 	assert_eq!(identity.admin, alice);
+	assert_eq!(identity.network_id_count, 0);
+	assert_eq!(identity.available_networks(), Vec::default());
 }
 
 #[ink::test]
@@ -314,7 +315,8 @@ fn add_network_works() {
 
 	// Check storage items updated
 	assert_eq!(identity.network_name_of.get(network_id), Some(name.clone()));
-	assert_eq!(identity.network_id_counter, 1);
+	assert_eq!(identity.available_networks(), vec![(network_id, name)]);
+	assert_eq!(identity.network_id_count, 1);
 
 	// Only the contract creator can add a new network
 	set_caller::<DefaultEnvironment>(bob);
@@ -351,6 +353,8 @@ fn remove_network_works() {
 	assert!(identity.remove_network(network_id).is_ok());
 
 	assert!(identity.network_name_of.get(0).is_none());
+
+	assert!(identity.available_networks().is_empty());
 
 	// Check emitted events
 	let last_event = recorded_events().last().unwrap();
@@ -527,11 +531,17 @@ fn init_with_networks_works() {
 	let networks: Vec<String> =
 		vec![polkadot.clone(), kusama.clone(), moonbeam.clone(), astar.clone()];
 	let identity = Identity::init_with_networks(networks);
-	assert_eq!(identity.network_id_counter, 4);
-	assert_eq!(identity.network_name_of(0), Some(polkadot));
-	assert_eq!(identity.network_name_of(1), Some(kusama));
-	assert_eq!(identity.network_name_of(2), Some(moonbeam));
-	assert_eq!(identity.network_name_of(3), Some(astar));
+
+	assert_eq!(identity.network_name_of(0), Some(polkadot.clone()));
+	assert_eq!(identity.network_name_of(1), Some(kusama.clone()));
+	assert_eq!(identity.network_name_of(2), Some(moonbeam.clone()));
+	assert_eq!(identity.network_name_of(3), Some(astar.clone()));
+
+	assert_eq!(identity.network_id_count, 4);
+	assert_eq!(
+		identity.available_networks(),
+		vec![(0, polkadot), (1, kusama), (2, moonbeam), (3, astar)]
+	);
 }
 
 #[ink::test]

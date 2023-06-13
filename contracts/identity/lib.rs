@@ -48,8 +48,8 @@ mod identity {
 		pub(crate) recovery_account_of: Mapping<IdentityNo, AccountId>,
 		pub(crate) latest_identity_no: IdentityNo,
 		pub(crate) network_name_of: Mapping<NetworkId, String>,
-		pub(crate) network_id_counter: NetworkId,
 		pub(crate) admin: AccountId,
+		pub(crate) network_id_count: NetworkId,
 	}
 
 	/// Events
@@ -132,9 +132,9 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				network_name_of: Default::default(),
-				network_id_counter: 0,
 				recovery_account_of: Default::default(),
 				admin: caller,
+				network_id_count: 0,
 			}
 		}
 
@@ -144,7 +144,8 @@ mod identity {
 
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
-				network_name_of.insert(network_id as NetworkId, &network);
+				let network_id = network_id as NetworkId;
+				network_name_of.insert(network_id, &network);
 			});
 
 			let caller = Self::env().caller();
@@ -154,7 +155,7 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				network_name_of,
-				network_id_counter: networks.len() as NetworkId,
+				network_id_count: networks.len() as NetworkId,
 				recovery_account_of: Default::default(),
 				admin: caller,
 			}
@@ -201,6 +202,15 @@ mod identity {
 				Some((_, address)) => Ok(address),
 				None => Err(Error::InvalidNetwork),
 			}
+		}
+
+		/// A list of all the available networks each associated with a `NetworkId`.
+		#[ink(message)]
+		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
+			(0..self.network_id_count)
+				.map(|id| (id, self.network_name_of(id)))
+				.filter_map(|(id, maybe_network)| maybe_network.map(|name| (id, name)))
+				.collect()
 		}
 
 		/// Creates an identity and returns the `IdentityNo`.
@@ -317,11 +327,11 @@ mod identity {
 			// Ensure that the name of the network doesn't exceed length limit
 			ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
-			let network_id = self.network_id_counter;
+			let network_id = self.network_id_count;
 
 			self.network_name_of.insert(network_id, &name);
 
-			self.network_id_counter = self.network_id_counter.saturating_add(1);
+			self.network_id_count = self.network_id_count.saturating_add(1);
 
 			self.env().emit_event(NetworkAdded { network_id, name });
 
