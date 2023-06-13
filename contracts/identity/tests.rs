@@ -354,7 +354,6 @@ fn remove_network_works() {
 
 	assert!(identity.network_name_of.get(0).is_none());
 
-	// assert_eq!(identity.network_count(), 0);
 	assert!(identity.available_networks().is_empty());
 
 	// Check emitted events
