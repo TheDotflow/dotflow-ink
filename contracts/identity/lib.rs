@@ -204,11 +204,6 @@ mod identity {
 			}
 		}
 
-		#[ink(message)]
-		pub fn network_count(&self) -> u32 {
-			self.network_id_count
-		}
-
 		/// A list of all the available networks each associated with a `NetworkId`.
 		#[ink(message)]
 		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
