@@ -18,7 +18,7 @@ fn constructor_works() {
 
 	assert_eq!(identity.latest_identity_no, 0);
 	assert_eq!(identity.admin, alice);
-	assert_eq!(identity.network_count(), 0);
+	assert_eq!(identity.network_id_count, 0);
 	assert_eq!(identity.available_networks(), Vec::default());
 }
 
@@ -315,9 +315,8 @@ fn add_network_works() {
 
 	// Check storage items updated
 	assert_eq!(identity.network_name_of.get(network_id), Some(name.clone()));
-	assert_eq!(identity.network_count(), 1);
 	assert_eq!(identity.available_networks(), vec![(network_id, name)]);
-	assert_eq!(identity.network_ids, vec![network_id]);
+	assert_eq!(identity.network_id_count, 1);
 
 	// Only the contract creator can add a new network
 	set_caller::<DefaultEnvironment>(bob);
@@ -357,7 +356,6 @@ fn remove_network_works() {
 
 	// assert_eq!(identity.network_count(), 0);
 	assert!(identity.available_networks().is_empty());
-	assert!(identity.network_ids.is_empty());
 
 	// Check emitted events
 	let last_event = recorded_events().last().unwrap();
@@ -540,8 +538,7 @@ fn init_with_networks_works() {
 	assert_eq!(identity.network_name_of(2), Some(moonbeam.clone()));
 	assert_eq!(identity.network_name_of(3), Some(astar.clone()));
 
-	assert_eq!(identity.network_count(), 4);
-	assert_eq!(identity.network_ids, vec![0, 1, 2, 3]);
+	assert_eq!(identity.network_id_count, 4);
 	assert_eq!(
 		identity.available_networks(),
 		vec![(0, polkadot), (1, kusama), (2, moonbeam), (3, astar)]

@@ -49,7 +49,7 @@ mod identity {
 		pub(crate) latest_identity_no: IdentityNo,
 		pub(crate) network_name_of: Mapping<NetworkId, String>,
 		pub(crate) admin: AccountId,
-		pub(crate) network_ids: Vec<NetworkId>,
+		pub(crate) network_id_count: NetworkId,
 	}
 
 	/// Events
@@ -134,20 +134,18 @@ mod identity {
 				network_name_of: Default::default(),
 				recovery_account_of: Default::default(),
 				admin: caller,
-				network_ids: Default::default(),
+				network_id_count: 0,
 			}
 		}
 
 		#[ink(constructor)]
 		pub fn init_with_networks(networks: Vec<String>) -> Self {
 			let mut network_name_of = Mapping::default();
-			let mut network_ids = Vec::<NetworkId>::default();
 
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
 				let network_id = network_id as NetworkId;
 				network_name_of.insert(network_id, &network);
-				network_ids.push(network_id);
 			});
 
 			let caller = Self::env().caller();
@@ -157,7 +155,7 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				network_name_of,
-				network_ids,
+				network_id_count: networks.len() as NetworkId,
 				recovery_account_of: Default::default(),
 				admin: caller,
 			}
@@ -320,13 +318,11 @@ mod identity {
 			// Ensure that the name of the network doesn't exceed length limit
 			ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
-			let network_id = match self.network_ids.last() {
-				Some(id) => id.saturating_add(1),
-				None => 0,
-			};
+			let network_id = self.network_id_count;
 
 			self.network_name_of.insert(network_id, &name);
-			self.network_ids.push(network_id);
+
+			self.network_id_count = self.network_id_count.saturating_add(1);
 
 			self.env().emit_event(NetworkAdded { network_id, name });
 
@@ -371,7 +367,6 @@ mod identity {
 			ensure!(name.is_some(), Error::InvalidNetwork);
 
 			self.network_name_of.remove(network_id);
-			self.network_ids.retain(|id| *id != network_id);
 
 			self.env().emit_event(NetworkRemoved { network_id });
 
@@ -380,16 +375,15 @@ mod identity {
 
 		#[ink(message)]
 		pub fn network_count(&self) -> u32 {
-			self.network_ids.len() as u32
+			self.network_id_count
 		}
 
 		#[ink(message)]
 		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
-			let mut networks = Vec::default();
-			self.network_ids
-				.iter()
-				.for_each(|&id| networks.push((id, self.network_name_of(id).unwrap())));
-			networks
+			(0..self.network_id_count)
+				.map(|id| (id, self.network_name_of(id)))
+				.filter_map(|(id, maybe_network)| maybe_network.map(|name| (id, name)))
+				.collect()
 		}
 
 		/// Sets the recovery account that will be able to change the ownership
