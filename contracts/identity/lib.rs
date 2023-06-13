@@ -387,18 +387,6 @@ mod identity {
 			Ok(())
 		}
 
-<<<<<<< Updated upstream
-
-		#[ink(message)]
-		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
-			(0..self.network_id_count)
-				.map(|id| (id, self.network_name_of(id)))
-				.filter_map(|(id, maybe_network)| maybe_network.map(|name| (id, name)))
-				.collect()
-		}
-
-=======
->>>>>>> Stashed changes
 		/// Sets the recovery account that will be able to change the ownership
 		/// of the identity.
 		///
