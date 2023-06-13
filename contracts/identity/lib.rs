@@ -373,10 +373,6 @@ mod identity {
 			Ok(())
 		}
 
-		#[ink(message)]
-		pub fn network_count(&self) -> u32 {
-			self.network_id_count
-		}
 
 		#[ink(message)]
 		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
