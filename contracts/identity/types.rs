@@ -15,8 +15,8 @@ pub type NetworkAddress = Vec<u8>;
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
 pub type NetworkId = u32;
 
-/// Used to represent the Ss58 Prefix of a Substrate chain
-pub type Ss58Prefix = u32;
+/// Used to represent the Ss58 Prefix of a Substrate chain.
+pub type Ss58Prefix = u16;
 
 #[derive(scale::Encode, scale::Decode, Debug, Default, PartialEq, Clone)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
