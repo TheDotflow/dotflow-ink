@@ -76,8 +76,12 @@ fn add_address_to_identity_works() {
 		IdentityInfo { addresses: Default::default() }
 	);
 
-	assert!(identity.add_network("Polkadot".to_string()).is_ok());
-	assert!(identity.add_network("Moonbeam".to_string()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Polkadot".to_string(), ss58_prefix: 0u32 })
+		.is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Moonbeam".to_string(), ss58_prefix: 1284u32 })
+		.is_ok());
 
 	let polkadot: NetworkId = 0;
 	let moonbeam: NetworkId = 1;
@@ -121,8 +125,12 @@ fn update_address_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_network("Polkadot".to_string()).is_ok());
-	assert!(identity.add_network("Moonbeam".to_string()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Polkadot".to_string(), ss58_prefix: 0u32 })
+		.is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Moonbeam".to_string(), ss58_prefix: 1284u32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -179,7 +187,9 @@ fn remove_address_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_network("Polkadot".to_string()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Polkadot".to_string(), ss58_prefix: 0u32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -230,7 +240,9 @@ fn remove_identity_works() {
 
 	assert!(identity.create_identity().is_ok());
 
-	assert!(identity.add_network("Polkadot".to_string()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Polkadot".to_string(), ss58_prefix: 0u32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -276,7 +288,9 @@ fn address_size_limit_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_network("Polkadot".to_string()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: "Polkadot".to_string(), ss58_prefix: 0u32 })
+		.is_ok());
 
 	let polkadot = 0;
 
@@ -296,11 +310,15 @@ fn add_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
+	let polkadot_prefix = 0u32;
+	let kusama_prefix = 2u32;
 	let polkadot = "Polkadot".to_string();
 	let kusama = "Kusama".to_string();
 
 	// Adding a network successful
-	assert!(identity.add_network(polkadot.clone()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { ss58_prefix: polkadot_prefix, name: polkadot.clone() })
+		.is_ok());
 
 	// Check emitted events
 	assert_eq!(recorded_events().count(), 1);
@@ -308,25 +326,34 @@ fn add_network_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::NetworkAdded(NetworkAdded { network_id, name }) = decoded_event else { panic!("NetworkAdded event should be emitted") };
+	let Event::NetworkAdded(NetworkAdded { network_id, name, ss58_prefix }) = decoded_event else { panic!("NetworkAdded event should be emitted") };
 
 	assert_eq!(network_id, 0);
 	assert_eq!(name, polkadot);
+	assert_eq!(ss58_prefix, polkadot_prefix);
+
+	let info = NetworkInfo { name: name.clone(), ss58_prefix: polkadot_prefix };
 
 	// Check storage items updated
-	assert_eq!(identity.network_name_of.get(network_id), Some(name.clone()));
-	assert_eq!(identity.available_networks(), vec![(network_id, name)]);
+	assert_eq!(identity.network_info_of.get(network_id), Some(info.clone()));
+	assert_eq!(identity.available_networks(), vec![(network_id, info)]);
 	assert_eq!(identity.network_id_count, 1);
 
 	// Only the contract creator can add a new network
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.add_network(kusama), Err(Error::NotAllowed));
+	assert_eq!(
+		identity.add_network(NetworkInfo { name: kusama, ss58_prefix: kusama_prefix }),
+		Err(Error::NotAllowed)
+	);
 
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Name of the network should not be too long
 	let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
-	assert_eq!(identity.add_network(long_network_name), Err(Error::NetworkNameTooLong));
+	assert_eq!(
+		identity.add_network(NetworkInfo { name: long_network_name, ss58_prefix: polkadot_prefix }),
+		Err(Error::NetworkNameTooLong)
+	);
 }
 
 #[ink::test]
@@ -337,7 +364,7 @@ fn remove_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(network_id) = identity.add_network(polkadot.clone()) else {
+	let Ok(network_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u32}) else {
         panic!("Failed to add network")
     };
 
@@ -352,7 +379,7 @@ fn remove_network_works() {
 	set_caller::<DefaultEnvironment>(alice);
 	assert!(identity.remove_network(network_id).is_ok());
 
-	assert!(identity.network_name_of.get(0).is_none());
+	assert!(identity.network_info_of.get(0).is_none());
 
 	assert!(identity.available_networks().is_empty());
 
@@ -376,30 +403,38 @@ fn update_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u32}) else {
         panic!("Failed to add network")
     };
 
-	assert!(identity.add_network(kusama.clone()).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { name: kusama.clone(), ss58_prefix: 1u32 })
+		.is_ok());
 
 	// Only the contract owner can update a network
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.update_network(polkadot_id, moonbeam.clone()), Err(Error::NotAllowed));
+	assert_eq!(
+		identity.update_network(polkadot_id, Some(0u32), Some(moonbeam.clone())),
+		Err(Error::NotAllowed)
+	);
 
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Network name should not be too long
 	let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
 	assert_eq!(
-		identity.update_network(polkadot_id, long_network_name),
+		identity.update_network(polkadot_id, Some(0u32), Some(long_network_name)),
 		Err(Error::NetworkNameTooLong)
 	);
 
 	// Must be an existing network
-	assert_eq!(identity.update_network(3, moonbeam.clone()), Err(Error::InvalidNetwork));
+	assert_eq!(
+		identity.update_network(3, Some(0u32), Some(moonbeam.clone())),
+		Err(Error::InvalidNetwork)
+	);
 
 	// Update network success
-	assert!(identity.update_network(polkadot_id, moonbeam.clone()).is_ok());
+	assert!(identity.update_network(polkadot_id, None, Some(moonbeam.clone())).is_ok());
 
 	// Check the emitted events
 	assert_eq!(recorded_events().count(), 3);
@@ -407,10 +442,11 @@ fn update_network_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::NetworkUpdated(NetworkUpdated { network_id: network_updated, name: new_name }) = decoded_event else { panic!("NetworkUpdated event should be emitted") };
+	let Event::NetworkUpdated(NetworkUpdated { network_id: network_updated, name: new_name, ss58_prefix }) = decoded_event else { panic!("NetworkUpdated event should be emitted") };
 
 	assert_eq!(network_updated, polkadot_id);
 	assert_eq!(new_name, moonbeam);
+	assert_eq!(ss58_prefix, 0u32);
 }
 
 #[ink::test]
@@ -450,7 +486,7 @@ fn transfer_ownership_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u32}) else {
         panic!("Failed to add network")
     };
 
@@ -528,19 +564,40 @@ fn init_with_networks_works() {
 	let kusama = "Kusama".to_string();
 	let moonbeam = "Moonbeam".to_string();
 	let astar = "Astar".to_string();
-	let networks: Vec<String> =
-		vec![polkadot.clone(), kusama.clone(), moonbeam.clone(), astar.clone()];
+	let networks = vec![
+		NetworkInfo { name: polkadot.clone(), ss58_prefix: 0u32 },
+		NetworkInfo { name: kusama.clone(), ss58_prefix: 1u32 },
+		NetworkInfo { name: moonbeam.clone(), ss58_prefix: 1284u32 },
+		NetworkInfo { name: astar.clone(), ss58_prefix: 5u32 },
+	];
 	let identity = Identity::init_with_networks(networks);
 
-	assert_eq!(identity.network_name_of(0), Some(polkadot.clone()));
-	assert_eq!(identity.network_name_of(1), Some(kusama.clone()));
-	assert_eq!(identity.network_name_of(2), Some(moonbeam.clone()));
-	assert_eq!(identity.network_name_of(3), Some(astar.clone()));
+	assert_eq!(
+		identity.network_info_of(0),
+		Some(NetworkInfo { name: polkadot.clone(), ss58_prefix: 0u32 })
+	);
+	assert_eq!(
+		identity.network_info_of(1),
+		Some(NetworkInfo { name: kusama.clone(), ss58_prefix: 1u32 })
+	);
+	assert_eq!(
+		identity.network_info_of(2),
+		Some(NetworkInfo { name: moonbeam.clone(), ss58_prefix: 1284u32 })
+	);
+	assert_eq!(
+		identity.network_info_of(3),
+		Some(NetworkInfo { name: astar.clone(), ss58_prefix: 5u32 })
+	);
 
 	assert_eq!(identity.network_id_count, 4);
 	assert_eq!(
 		identity.available_networks(),
-		vec![(0, polkadot), (1, kusama), (2, moonbeam), (3, astar)]
+		vec![
+			(0, NetworkInfo { name: polkadot, ss58_prefix: 0u32 }),
+			(1, NetworkInfo { name: kusama, ss58_prefix: 1u32 }),
+			(2, NetworkInfo { name: moonbeam, ss58_prefix: 1284u32 }),
+			(3, NetworkInfo { name: astar, ss58_prefix: 5u32 })
+		]
 	);
 }
 
@@ -548,7 +605,7 @@ fn init_with_networks_works() {
 #[should_panic(expected = "Network name is too long")]
 fn init_with_networks_fail() {
 	let very_long_name = String::from_utf8(vec!['a' as u8; 150]).unwrap();
-	Identity::init_with_networks(vec![very_long_name]);
+	Identity::init_with_networks(vec![NetworkInfo { name: very_long_name, ss58_prefix: 0u32 }]);
 }
 
 #[ink::test]
@@ -559,7 +616,7 @@ fn getting_transaction_destination_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(polkadot.clone()) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u32}) else {
         panic!("Failed to add network")
     };
 
@@ -587,7 +644,7 @@ fn getting_transaction_destination_works() {
 
 	// Fails because alice does not have an address on the Moonbeam network.
 	let moonbeam = "Moonbeam".to_string();
-	let Ok(moonbeam_id) = identity.add_network(moonbeam.clone()) else {
+	let Ok(moonbeam_id) = identity.add_network(NetworkInfo{name: moonbeam.clone(), ss58_prefix: 1284u32}) else {
         panic!("Failed to add network")
     };
 
