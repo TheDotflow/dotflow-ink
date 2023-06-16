@@ -1,6 +1,6 @@
 /// Types used in the identity contract.
 use crate::{ensure, Error, ADDRESS_SIZE_LIMIT};
-use ink::prelude::vec::Vec;
+use ink::prelude::{string::String, vec::Vec};
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
@@ -14,6 +14,17 @@ pub type NetworkAddress = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo network.
 pub type NetworkId = u32;
+
+/// Used to represent the Ss58 Prefix of a Substrate chain.
+pub type Ss58Prefix = u16;
+
+#[derive(scale::Encode, scale::Decode, Debug, Default, PartialEq, Clone)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
+pub struct NetworkInfo {
+	/// Each address is associated with a specific blockchain.
+	pub(crate) name: String,
+	pub(crate) ss58_prefix: Ss58Prefix,
+}
 
 #[derive(scale::Encode, scale::Decode, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]

@@ -38,6 +38,7 @@ mod identity {
 	use super::*;
 	use crate::types::*;
 	use ink::storage::Mapping;
+	use types::{NetworkInfo, Ss58Prefix};
 
 	/// Storage
 	#[ink(storage)]
@@ -47,7 +48,7 @@ mod identity {
 		pub(crate) identity_of: Mapping<AccountId, IdentityNo>,
 		pub(crate) recovery_account_of: Mapping<IdentityNo, AccountId>,
 		pub(crate) latest_identity_no: IdentityNo,
-		pub(crate) network_name_of: Mapping<NetworkId, String>,
+		pub(crate) network_info_of: Mapping<NetworkId, NetworkInfo>,
 		pub(crate) admin: AccountId,
 		pub(crate) network_id_count: NetworkId,
 	}
@@ -94,6 +95,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		pub(crate) name: String,
+		pub(crate) ss58_prefix: Ss58Prefix,
 	}
 
 	#[ink(event)]
@@ -101,6 +103,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		pub(crate) name: String,
+		pub(crate) ss58_prefix: Ss58Prefix,
 	}
 
 	#[ink(event)]
@@ -131,7 +134,7 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_name_of: Default::default(),
+				network_info_of: Default::default(),
 				recovery_account_of: Default::default(),
 				admin: caller,
 				network_id_count: 0,
@@ -139,13 +142,13 @@ mod identity {
 		}
 
 		#[ink(constructor)]
-		pub fn init_with_networks(networks: Vec<String>) -> Self {
-			let mut network_name_of = Mapping::default();
+		pub fn init_with_networks(networks: Vec<NetworkInfo>) -> Self {
+			let mut network_info_of = Mapping::default();
 
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
-				assert!(network.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
+				assert!(network.name.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
 				let network_id = network_id as NetworkId;
-				network_name_of.insert(network_id, &network);
+				network_info_of.insert(network_id, &network);
 			});
 
 			let caller = Self::env().caller();
@@ -154,7 +157,7 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_name_of,
+				network_info_of,
 				network_id_count: networks.len() as NetworkId,
 				recovery_account_of: Default::default(),
 				admin: caller,
@@ -182,8 +185,8 @@ mod identity {
 
 		/// Returns the network name that is associated with the specified `NetworkId`.
 		#[ink(message)]
-		pub fn network_name_of(&self, network_id: NetworkId) -> Option<String> {
-			self.network_name_of.get(network_id)
+		pub fn network_info_of(&self, network_id: NetworkId) -> Option<NetworkInfo> {
+			self.network_info_of.get(network_id)
 		}
 
 		/// Returns the destination address of a transaction that needs to be
@@ -206,10 +209,10 @@ mod identity {
 
 		/// A list of all the available networks each associated with a `NetworkId`.
 		#[ink(message)]
-		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
+		pub fn available_networks(&self) -> Vec<(NetworkId, NetworkInfo)> {
 			(0..self.network_id_count)
-				.map(|id| (id, self.network_name_of(id)))
-				.filter_map(|(id, maybe_network)| maybe_network.map(|name| (id, name)))
+				.map(|id| (id, self.network_info_of(id)))
+				.filter_map(|(id, maybe_network)| maybe_network.map(|info| (id, info)))
 				.collect()
 		}
 
@@ -318,22 +321,23 @@ mod identity {
 		}
 
 		#[ink(message)]
-		pub fn add_network(&mut self, name: String) -> Result<NetworkId, Error> {
+		pub fn add_network(&mut self, info: NetworkInfo) -> Result<NetworkId, Error> {
 			let caller = self.env().caller();
 
 			// Only the contract owner can add a network
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the name of the network doesn't exceed length limit
-			ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
+			ensure!(info.name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
 
 			let network_id = self.network_id_count;
-
-			self.network_name_of.insert(network_id, &name);
+			self.network_info_of.insert(network_id, &info);
 
 			self.network_id_count = self.network_id_count.saturating_add(1);
 
-			self.env().emit_event(NetworkAdded { network_id, name });
+			let NetworkInfo { name, ss58_prefix } = info;
+
+			self.env().emit_event(NetworkAdded { network_id, name, ss58_prefix });
 
 			Ok(network_id)
 		}
@@ -342,24 +346,36 @@ mod identity {
 		pub fn update_network(
 			&mut self,
 			network_id: NetworkId,
-			new_name: String,
+			new_prefix: Option<Ss58Prefix>,
+			new_name: Option<String>,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
 			// Only the contract owner can update a network
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			// Ensure that the name of the network doesn't exceed length limit
-			ensure!(new_name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
-
 			// Ensure that the given network id exists
-			let old_name = self.network_name_of.get(network_id);
-			ensure!(old_name.is_some(), Error::InvalidNetwork);
+			ensure!(self.network_info_of.get(network_id).is_some(), Error::InvalidNetwork);
+			let mut info = self.network_info_of.get(network_id).unwrap();
+
+			// Ensure that the name of the network doesn't exceed length limit
+			if let Some(name) = new_name {
+				ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
+				info.name = name;
+			}
+
+			if let Some(prefix) = new_prefix {
+				info.ss58_prefix = prefix;
+			}
 
 			// Update storage items
-			self.network_name_of.insert(network_id, &new_name);
+			self.network_info_of.insert(network_id, &info);
 
-			self.env().emit_event(NetworkUpdated { network_id, name: new_name });
+			self.env().emit_event(NetworkUpdated {
+				network_id,
+				name: info.name,
+				ss58_prefix: info.ss58_prefix,
+			});
 
 			Ok(())
 		}
@@ -372,10 +388,10 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given `network_id` exists
-			let name = self.network_name_of.get(network_id);
+			let name = self.network_info_of.get(network_id);
 			ensure!(name.is_some(), Error::InvalidNetwork);
 
-			self.network_name_of.remove(network_id);
+			self.network_info_of.remove(network_id);
 
 			self.env().emit_event(NetworkRemoved { network_id });
 
