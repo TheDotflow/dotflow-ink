@@ -1,3 +1,5 @@
+//! The source code for the identity contract.
+
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 use ink::prelude::{string::String, vec::Vec};
@@ -21,6 +23,8 @@ const ADDRESS_SIZE_LIMIT: usize = 128;
 /// Limit the name length of a network
 const NETWORK_NAME_LIMIT: usize = 128;
 
+/// All the possible errors that may occur when interacting with the identity
+/// contract.
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum Error {
@@ -43,79 +47,127 @@ mod identity {
 	/// Storage
 	#[ink(storage)]
 	pub struct Identity {
+		/// Each identity is associated with its own unique `IdentityNo`.
 		pub(crate) number_to_identity: Mapping<IdentityNo, IdentityInfo>,
+
+		/// Each identity must have an owner.
 		pub(crate) owner_of: Mapping<IdentityNo, AccountId>,
+
+		/// Mapping an `AccountId` to an `IdentityNo`. An account can only have
+		/// one identity.
 		pub(crate) identity_of: Mapping<AccountId, IdentityNo>,
+
+		/// The recovery account of a specific identity. This account has the
+		/// power to transfer the ownership of an identity to another account.
+		///
+		/// WARNING: It is recommended to have a recovery account specified
+		/// since otherwise if you lose access to the account that owns the
+		/// identity you won't be able to make any changes to your identity. 
 		pub(crate) recovery_account_of: Mapping<IdentityNo, AccountId>,
+
+		/// `IdentityNo`s are incremented every time a new identity is created
+		/// so this storage value keeps track of that. 
 		pub(crate) latest_identity_no: IdentityNo,
+
+		/// The network information associated with a specific `NetworkId`.
 		pub(crate) network_info_of: Mapping<NetworkId, NetworkInfo>,
+
+		/// The admin account has the ability to update the list of supported
+		/// networks that can be used in Dotflow.
+		///
+		/// In the future it could be a good idea to have this controlled by
+		/// governance.
 		pub(crate) admin: AccountId,
+
+		/// Keeps track of the lastest `NetworkId`. Gets incremented whenever a
+		/// new network is added.
 		pub(crate) network_id_count: NetworkId,
 	}
 
 	/// Events
 	#[ink(event)]
 	pub struct IdentityCreated {
+		/// Owner of the created identity.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
+		/// The `IdentityNo` associated with the created identity. 
 		pub(crate) identity_no: IdentityNo,
 	}
 
 	#[ink(event)]
 	pub struct AddressAdded {
+		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
+		/// The network on which a new address has been added.
 		pub(crate) network: NetworkId,
+		/// The newly added address.
 		pub(crate) address: NetworkAddress,
 	}
 
 	#[ink(event)]
 	pub struct AddressUpdated {
+		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
+		/// The network on which the address has been updated.
 		pub(crate) network: NetworkId,
+		/// The updated address value.
 		pub(crate) updated_address: NetworkAddress,
 	}
 
 	#[ink(event)]
 	pub struct AddressRemoved {
+		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
+		/// The network on which the address has been removed.
 		pub(crate) network: NetworkId,
 	}
 
 	#[ink(event)]
 	pub struct IdentityRemoved {
+		/// The `IdentityNo` of the identity that got removed.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
 	}
 
 	#[ink(event)]
 	pub struct NetworkAdded {
+		/// The `NetworkId` that is associated with the newly added network. 
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
+		/// The name of the network name that got added.
 		pub(crate) name: String,
+		/// The `Ss58Prefix`  of the network that got added.
 		pub(crate) ss58_prefix: Ss58Prefix,
 	}
 
 	#[ink(event)]
 	pub struct NetworkUpdated {
+		/// The `NetworkId` that is associated with the updated network. 
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
+		/// The name of the updated network.
 		pub(crate) name: String,
+		/// The `Ss58Prefix` of the updated network.
 		pub(crate) ss58_prefix: Ss58Prefix,
 	}
 
 	#[ink(event)]
 	pub struct NetworkRemoved {
+		/// The `NetworkId` that is associated with the network that got
+		/// removed. 
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 	}
 
 	#[ink(event)]
 	pub struct RecoveryAccountSet {
+		/// The `IdentityNo` of the identity that set a recovery account.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
+		/// The newly set recovery account.
 		pub(crate) recovery_account: AccountId,
 	}
 
@@ -145,6 +197,8 @@ mod identity {
 		pub fn init_with_networks(networks: Vec<NetworkInfo>) -> Self {
 			let mut network_info_of = Mapping::default();
 
+			// Iterate over all the networks provided and make sure their name
+			// does not exceed the `NETWORK_NAME_LIMIT`.
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(network.name.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
 				let network_id = network_id as NetworkId;
