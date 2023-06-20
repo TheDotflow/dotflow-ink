@@ -1,4 +1,4 @@
-//! The source code for the identity contract.
+//! The source code of the identity contract.
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
