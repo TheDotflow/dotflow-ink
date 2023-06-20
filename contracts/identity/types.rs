@@ -23,6 +23,8 @@ pub type Ss58Prefix = u16;
 pub struct NetworkInfo {
 	/// Each address is associated with a specific blockchain.
 	pub(crate) name: String,
+	/// This is used on the frontend to ensure the user does not add an address
+	/// that is not valid on the network he specified.
 	pub(crate) ss58_prefix: Ss58Prefix,
 }
 
