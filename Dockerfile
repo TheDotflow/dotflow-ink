@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1.70-slim-buster
+FROM rust:1.70-buster
 
 WORKDIR /app
 
