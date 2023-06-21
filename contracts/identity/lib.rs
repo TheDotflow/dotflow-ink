@@ -62,11 +62,11 @@ mod identity {
 		///
 		/// WARNING: It is recommended to have a recovery account specified
 		/// since otherwise if you lose access to the account that owns the
-		/// identity you won't be able to make any changes to your identity. 
+		/// identity you won't be able to make any changes to your identity.
 		pub(crate) recovery_account_of: Mapping<IdentityNo, AccountId>,
 
 		/// `IdentityNo`s are incremented every time a new identity is created
-		/// so this storage value keeps track of that. 
+		/// so this storage value keeps track of that.
 		pub(crate) latest_identity_no: IdentityNo,
 
 		/// The network information associated with a specific `NetworkId`.
@@ -90,7 +90,7 @@ mod identity {
 		/// Owner of the created identity.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
-		/// The `IdentityNo` associated with the created identity. 
+		/// The `IdentityNo` associated with the created identity.
 		pub(crate) identity_no: IdentityNo,
 	}
 
@@ -134,7 +134,7 @@ mod identity {
 
 	#[ink(event)]
 	pub struct NetworkAdded {
-		/// The `NetworkId` that is associated with the newly added network. 
+		/// The `NetworkId` that is associated with the newly added network.
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		/// The name of the network name that got added.
@@ -145,7 +145,7 @@ mod identity {
 
 	#[ink(event)]
 	pub struct NetworkUpdated {
-		/// The `NetworkId` that is associated with the updated network. 
+		/// The `NetworkId` that is associated with the updated network.
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		/// The name of the updated network.
@@ -157,7 +157,7 @@ mod identity {
 	#[ink(event)]
 	pub struct NetworkRemoved {
 		/// The `NetworkId` that is associated with the network that got
-		/// removed. 
+		/// removed.
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 	}
@@ -251,9 +251,10 @@ mod identity {
 			receiver: IdentityNo,
 			network: NetworkId,
 		) -> Result<NetworkAddress, Error> {
-			ensure!(self.number_to_identity.get(receiver).is_some(), Error::IdentityDoesntExist);
-
-			let receiver_identity = self.number_to_identity.get(receiver).unwrap();
+			let receiver_identity = self
+				.number_to_identity
+				.get(receiver)
+				.map_or(Err(Error::IdentityDoesntExist), |v| Ok(v))?;
 
 			match receiver_identity.addresses.into_iter().find(|(id, _)| *id == network) {
 				Some((_, address)) => Ok(address),
@@ -302,9 +303,10 @@ mod identity {
 			address: NetworkAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
 			identity_info.add_address(network, address.clone())?;
@@ -323,9 +325,10 @@ mod identity {
 			address: NetworkAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
 			identity_info.update_address(network, address.clone())?;
@@ -344,9 +347,10 @@ mod identity {
 		#[ink(message)]
 		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
 			identity_info.remove_address(network)?;
@@ -361,9 +365,9 @@ mod identity {
 		#[ink(message)]
 		pub fn remove_identity(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
 
 			self.identity_of.remove(caller);
 			self.owner_of.remove(identity_no);
@@ -409,8 +413,10 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given network id exists
-			ensure!(self.network_info_of.get(network_id).is_some(), Error::InvalidNetwork);
-			let mut info = self.network_info_of.get(network_id).unwrap();
+			let mut info = self
+				.network_info_of
+				.get(network_id)
+				.map_or(Err(Error::InvalidNetwork), |v| Ok(v))?;
 
 			// Ensure that the name of the network doesn't exceed length limit
 			if let Some(name) = new_name {
@@ -459,9 +465,9 @@ mod identity {
 		#[ink(message)]
 		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
 			let caller = self.env().caller();
-			ensure!(self.identity_of.get(caller).is_some(), Error::NotAllowed);
 
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
 
 			self.recovery_account_of.insert(identity_no, &recovery_account);
 			self.env().emit_event(RecoveryAccountSet { identity_no, recovery_account });
@@ -501,7 +507,11 @@ mod identity {
 			&self,
 			caller: AccountId,
 		) -> Result<IdentityInfo, Error> {
-			let identity_no = self.identity_of.get(caller).unwrap();
+			let identity_no = self
+				.identity_of
+				.get(caller)
+				.map_or(Err(Error::IdentityDoesntExist), |v| Ok(v))?;
+
 			let identity_info = self.number_to_identity.get(identity_no);
 
 			// This is a defensive check. The identity info should always exist
@@ -509,7 +519,9 @@ mod identity {
 			// `identity_of` mapping.
 			ensure!(identity_info.is_some(), Error::IdentityDoesntExist);
 
-			let identity_info = identity_info.unwrap();
+			let identity_info = identity_info.expect(
+				"The identity info must exist if an `IdentityNo` is associated with it; qed",
+			);
 
 			Ok(identity_info)
 		}

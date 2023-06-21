@@ -297,10 +297,7 @@ fn address_size_limit_works() {
 	let mut polkadot_address: Vec<u8> = vec![];
 	(0..150).for_each(|n| polkadot_address.push(n));
 
-	assert_eq!(
-		identity.add_address(polkadot, polkadot_address),
-		Err(Error::AddressSizeExceeded)
-	);
+	assert_eq!(identity.add_address(polkadot, polkadot_address), Err(Error::AddressSizeExceeded));
 }
 
 #[ink::test]
@@ -407,9 +404,7 @@ fn update_network_works() {
         panic!("Failed to add network")
     };
 
-	assert!(identity
-		.add_network(NetworkInfo { name: kusama, ss58_prefix: 1u16 })
-		.is_ok());
+	assert!(identity.add_network(NetworkInfo { name: kusama, ss58_prefix: 1u16 }).is_ok());
 
 	// Only the contract owner can update a network
 	set_caller::<DefaultEnvironment>(bob);
