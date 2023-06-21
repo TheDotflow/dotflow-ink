@@ -115,7 +115,7 @@ fn add_address_to_identity_works() {
 
 	// Bob is not allowed to add an address to alice's identity.
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.add_address(moonbeam, encoded_address.clone()), Err(Error::NotAllowed));
+	assert_eq!(identity.add_address(moonbeam, encoded_address), Err(Error::NotAllowed));
 }
 
 #[ink::test]
@@ -146,7 +146,7 @@ fn update_address_works() {
 	assert!(identity.add_address(polkadot, polkadot_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, polkadot_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot, polkadot_address)] }
 	);
 
 	// Alice lost the key phrase of her old address so now she wants to use her other
@@ -204,7 +204,7 @@ fn remove_address_works() {
 	assert!(identity.add_address(polkadot, encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot, encoded_address)] }
 	);
 
 	// Bob is not allowed to remove an address from alice's identity.
@@ -257,7 +257,7 @@ fn remove_identity_works() {
 	assert!(identity.add_address(polkadot, encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot, encoded_address)] }
 	);
 
 	// Bob is not allowed to remove alice's identity.
@@ -298,7 +298,7 @@ fn address_size_limit_works() {
 	(0..150).for_each(|n| polkadot_address.push(n));
 
 	assert_eq!(
-		identity.add_address(polkadot, polkadot_address.clone()),
+		identity.add_address(polkadot, polkadot_address),
 		Err(Error::AddressSizeExceeded)
 	);
 }
@@ -332,7 +332,7 @@ fn add_network_works() {
 	assert_eq!(name, polkadot);
 	assert_eq!(ss58_prefix, polkadot_prefix);
 
-	let info = NetworkInfo { name: name.clone(), ss58_prefix: polkadot_prefix };
+	let info = NetworkInfo { name, ss58_prefix: polkadot_prefix };
 
 	// Check storage items updated
 	assert_eq!(identity.network_info_of.get(network_id), Some(info.clone()));
@@ -349,7 +349,7 @@ fn add_network_works() {
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Name of the network should not be too long
-	let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
+	let long_network_name: String = String::from_utf8(vec![b'a'; 150]).unwrap();
 	assert_eq!(
 		identity.add_network(NetworkInfo { name: long_network_name, ss58_prefix: polkadot_prefix }),
 		Err(Error::NetworkNameTooLong)
@@ -364,7 +364,7 @@ fn remove_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(network_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u16}) else {
+	let Ok(network_id) = identity.add_network(NetworkInfo{name: polkadot, ss58_prefix: 0u16}) else {
         panic!("Failed to add network")
     };
 
@@ -403,12 +403,12 @@ fn update_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u16}) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot, ss58_prefix: 0u16}) else {
         panic!("Failed to add network")
     };
 
 	assert!(identity
-		.add_network(NetworkInfo { name: kusama.clone(), ss58_prefix: 1u16 })
+		.add_network(NetworkInfo { name: kusama, ss58_prefix: 1u16 })
 		.is_ok());
 
 	// Only the contract owner can update a network
@@ -421,7 +421,7 @@ fn update_network_works() {
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Network name should not be too long
-	let long_network_name: String = String::from_utf8(vec!['a' as u8; 150]).unwrap();
+	let long_network_name: String = String::from_utf8(vec![b'a'; 150]).unwrap();
 	assert_eq!(
 		identity.update_network(polkadot_id, Some(0u16), Some(long_network_name)),
 		Err(Error::NetworkNameTooLong)
@@ -486,7 +486,7 @@ fn transfer_ownership_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u16}) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot, ss58_prefix: 0u16}) else {
         panic!("Failed to add network")
     };
 
@@ -501,10 +501,10 @@ fn transfer_ownership_works() {
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot_id, encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
 	);
 
 	// Bob is not allowed to transfer the ownership. Only alice or the
@@ -519,7 +519,7 @@ fn transfer_ownership_works() {
 	assert_eq!(identity.owner_of.get(0), Some(bob));
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
 	);
 	assert_eq!(identity.identity_of.get(alice), None);
 	assert_eq!(identity.identity_of.get(bob), Some(0));
@@ -535,7 +535,7 @@ fn transfer_ownership_works() {
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id, encoded_address)] }
 	);
 	assert_eq!(identity.identity_of.get(alice), Some(0));
 	assert_eq!(identity.identity_of.get(bob), None);
@@ -604,7 +604,7 @@ fn init_with_networks_works() {
 #[ink::test]
 #[should_panic(expected = "Network name is too long")]
 fn init_with_networks_fail() {
-	let very_long_name = String::from_utf8(vec!['a' as u8; 150]).unwrap();
+	let very_long_name = String::from_utf8(vec![b'a'; 150]).unwrap();
 	Identity::init_with_networks(vec![NetworkInfo { name: very_long_name, ss58_prefix: 0u16 }]);
 }
 
@@ -616,7 +616,7 @@ fn getting_transaction_destination_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot.clone(), ss58_prefix: 0u16}) else {
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo{name: polkadot, ss58_prefix: 0u16}) else {
         panic!("Failed to add network")
     };
 
@@ -631,10 +631,10 @@ fn getting_transaction_destination_works() {
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot_id, encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
 	);
 
 	assert_eq!(identity.transaction_destination(identity_no, polkadot_id), Ok(encoded_address));
@@ -644,7 +644,7 @@ fn getting_transaction_destination_works() {
 
 	// Fails because alice does not have an address on the Moonbeam network.
 	let moonbeam = "Moonbeam".to_string();
-	let Ok(moonbeam_id) = identity.add_network(NetworkInfo{name: moonbeam.clone(), ss58_prefix: 1284u16}) else {
+	let Ok(moonbeam_id) = identity.add_network(NetworkInfo{name: moonbeam, ss58_prefix: 1284u16}) else {
         panic!("Failed to add network")
     };
 
