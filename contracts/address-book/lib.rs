@@ -38,27 +38,27 @@ mod address_book {
 
 		#[ink(message)]
 		pub fn create_address_book(&mut self) {
-			// TODO
+			// TODO:
 		}
 
 		#[ink(message)]
 		pub fn remove_address_book(&mut self) {
-			// TODO
+			// TODO:
 		}
 
 		#[ink(message)]
 		pub fn add_identity(&mut self, identity_no: IdentityNo, nickname: Option<Nickname>) {
-			// TODO
+			// TODO:
 		}
 
 		#[ink(message)]
 		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
-			// TODO
+			// TODO:
 		}
 
 		#[ink(message)]
 		pub fn update_nickname(&mut self, identity_no: IdentityNo, new_nickname: Option<Nickname>) {
-			// TODO
+			// TODO:
 		}
 	}
 

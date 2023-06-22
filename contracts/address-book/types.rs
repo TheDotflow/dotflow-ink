@@ -1,5 +1,6 @@
 //! Types used in the address book contract.
 
+use ink::prelude::{string::String, vec::Vec};
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
@@ -20,14 +21,14 @@ pub struct AddressBookInfo {
 
 impl AddressBookInfo {
 	pub fn add_identity(identity_no: IdentityNo, nickname: Option<Nickname>) {
-		// TODO
+		// TODO:
 	}
 
 	pub fn remove_identity(identity_no: IdentityNo) {
-		// TODO
+		// TODO:
 	}
 
 	pub fn update_nickname(identity_no: IdentityNo, new_nickname: Option<Nickname>) {
-		// TODO
+		// TODO:
 	}
 }
