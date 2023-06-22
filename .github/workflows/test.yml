@@ -62,6 +62,9 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v3
+
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
