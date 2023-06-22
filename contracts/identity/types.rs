@@ -1,10 +1,12 @@
-/// Types used in the identity contract.
+//! Types used in the identity contract.
+
 use crate::{ensure, Error, ADDRESS_SIZE_LIMIT};
 use ink::prelude::{string::String, vec::Vec};
+
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
-/// Each identity will be associated with a unique identifier called `IdentityNo`.
+/// Each identity is associated with a unique identifier called `IdentityNo`.
 pub type IdentityNo = u32;
 
 /// We want to keep the address type very generic since we want to support any
