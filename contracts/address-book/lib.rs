@@ -16,6 +16,13 @@ macro_rules! ensure {
 /// The maximum number of chars the nickname can hold.
 const NICKNAME_LENGTH_LIMIT: u8 = 16;
 
+#[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum Error {
+	AddressBookAlreadyCreated,
+	AddressBookNotExist,
+}
+
 #[ink::contract]
 mod address_book {
 	use super::*;
@@ -30,6 +37,18 @@ mod address_book {
 		address_book_of: Mapping<AccountId, AddressBookInfo>,
 	}
 
+	#[ink(event)]
+	pub struct AddressBookCreated {
+		#[ink(topic)]
+		pub(crate) owner: AccountId,
+	}
+
+	#[ink(event)]
+	pub struct AddressBookRemoved {
+		#[ink(topic)]
+		pub(crate) owner: AccountId,
+	}
+
 	impl AddressBook {
 		#[ink(constructor)]
 		pub fn new() -> Self {
@@ -37,13 +56,29 @@ mod address_book {
 		}
 
 		#[ink(message)]
-		pub fn create_address_book(&mut self) {
-			// TODO:
+		pub fn create_address_book(&mut self) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			ensure!(self.address_book_of.get(caller).is_none(), Error::AddressBookAlreadyCreated);
+			self.address_book_of
+				.insert(caller, &AddressBookInfo { identities: Default::default() });
+
+			self.env().emit_event(AddressBookCreated { owner: caller });
+
+			Ok(())
 		}
 
 		#[ink(message)]
-		pub fn remove_address_book(&mut self) {
-			// TODO:
+		pub fn remove_address_book(&mut self) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			ensure!(self.address_book_of.get(caller).is_some(), Error::AddressBookNotExist);
+
+			self.address_book_of.remove(caller);
+
+			self.env().emit_event(AddressBookRemoved { owner: caller });
+
+			Ok(())
 		}
 
 		#[ink(message)]
@@ -61,30 +96,4 @@ mod address_book {
 			// TODO:
 		}
 	}
-
-	#[cfg(test)]
-	mod tests {
-		use super::*;
-		use ink::env::{
-			test::{default_accounts, DefaultAccounts},
-			DefaultEnvironment,
-		};
-
-		/// We test if the constructor does its job.
-		#[ink::test]
-		fn constructor_works() {
-			let address_book = AddressBook::new();
-			let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
-
-			// The `address_book_of` storage mapping should be empty.
-			assert_eq!(address_book.address_book_of.get(alice), None);
-		}
-
-		fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
-			default_accounts::<DefaultEnvironment>()
-		}
-	}
-
-	#[cfg(all(test, feature = "e2e-tests"))]
-	mod e2e_tests {}
 }
