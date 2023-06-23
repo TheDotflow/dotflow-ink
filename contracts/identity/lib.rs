@@ -254,7 +254,7 @@ mod identity {
 			let receiver_identity = self
 				.number_to_identity
 				.get(receiver)
-				.map_or(Err(Error::IdentityDoesntExist), |v| Ok(v))?;
+				.map_or(Err(Error::IdentityDoesntExist), Ok)?;
 
 			match receiver_identity.addresses.into_iter().find(|(id, _)| *id == network) {
 				Some((_, address)) => Ok(address),
@@ -304,8 +304,7 @@ mod identity {
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			let identity_no =
-				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
@@ -326,8 +325,7 @@ mod identity {
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			let identity_no =
-				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
@@ -348,8 +346,7 @@ mod identity {
 		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			let identity_no =
-				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
@@ -366,8 +363,7 @@ mod identity {
 		pub fn remove_identity(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			let identity_no =
-				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			self.identity_of.remove(caller);
 			self.owner_of.remove(identity_no);
@@ -413,10 +409,8 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given network id exists
-			let mut info = self
-				.network_info_of
-				.get(network_id)
-				.map_or(Err(Error::InvalidNetwork), |v| Ok(v))?;
+			let mut info =
+				self.network_info_of.get(network_id).map_or(Err(Error::InvalidNetwork), Ok)?;
 
 			// Ensure that the name of the network doesn't exceed length limit
 			if let Some(name) = new_name {
@@ -466,8 +460,7 @@ mod identity {
 		pub fn set_recovery_account(&mut self, recovery_account: AccountId) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			let identity_no =
-				self.identity_of.get(caller).map_or(Err(Error::NotAllowed), |v| Ok(v))?;
+			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			self.recovery_account_of.insert(identity_no, &recovery_account);
 			self.env().emit_event(RecoveryAccountSet { identity_no, recovery_account });
@@ -507,10 +500,8 @@ mod identity {
 			&self,
 			caller: AccountId,
 		) -> Result<IdentityInfo, Error> {
-			let identity_no = self
-				.identity_of
-				.get(caller)
-				.map_or(Err(Error::IdentityDoesntExist), |v| Ok(v))?;
+			let identity_no =
+				self.identity_of.get(caller).map_or(Err(Error::IdentityDoesntExist), Ok)?;
 
 			let identity_info = self.number_to_identity.get(identity_no);
 
