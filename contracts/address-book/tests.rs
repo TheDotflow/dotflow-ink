@@ -2,13 +2,11 @@
 use crate::{address_book::*, types::*, *};
 use ink::{
 	env::{
-		test::{default_accounts, set_caller, DefaultAccounts},
+		test::{default_accounts, DefaultAccounts},
 		DefaultEnvironment,
 	},
 	primitives::AccountId,
 };
-use ink_e2e::{subxt::storage::address, AccountKeyring};
-use scale::Decode;
 
 #[ink::test]
 fn constructor_works() {
