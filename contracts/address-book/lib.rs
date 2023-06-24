@@ -78,6 +78,12 @@ mod address_book {
 		pub(crate) address: AccountId,
 	}
 
+	#[ink(event)]
+	pub struct IdentityAdded {
+		pub(crate) owner: AccountId,
+		pub(crate) identity: IdentityNo,
+	}
+
 	impl AddressBook {
 		/// Constructor
 		/// Instantiate with the address of `Identity` contract
@@ -146,6 +152,11 @@ mod address_book {
 			ensure!(identity.is_some(), Error::InvalidIdentityNo);
 
 			address_book.add_identity(identity_no, nickname)?;
+
+			ink::env::emit_event::<DefaultEnvironment, _>(IdentityAdded {
+				owner: caller,
+				identity: identity_no,
+			});
 
 			Ok(())
 		}
