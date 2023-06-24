@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::prelude::{vec::Vec};
+use ink::prelude::vec::Vec;
 #[cfg(test)]
 mod tests;
 
@@ -84,6 +84,11 @@ mod address_book {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
+		#[ink(message)]
+		pub fn identity_contract(&self) -> AccountId {
+			self.identity_contract
+		}
+
 		/// Creates an address book for a user
 		#[ink(message)]
 		pub fn create_address_book(&mut self) -> Result<(), Error> {
@@ -93,7 +98,7 @@ mod address_book {
 			self.address_book_of
 				.insert(caller, &AddressBookInfo { identities: Default::default() });
 
-			self.env().emit_event(AddressBookCreated { owner: caller });
+			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookCreated { owner: caller });
 
 			Ok(())
 		}
@@ -107,7 +112,7 @@ mod address_book {
 
 			self.address_book_of.remove(caller);
 
-			self.env().emit_event(AddressBookRemoved { owner: caller });
+			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookRemoved { owner: caller });
 
 			Ok(())
 		}
@@ -162,6 +167,45 @@ mod address_book {
 			} else {
 				Vec::default()
 			}
+		}
+	}
+
+	#[cfg(all(test, feature = "e2e-tests"))]
+	mod e2e_tests {
+		use super::AddressBookRef;
+		use identity::IdentityRef;
+		use ink_e2e::build_message;
+
+		type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+		#[ink_e2e::test]
+		async fn constructor_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::new();
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let get_identity_contract = build_message::<AddressBookRef>(book_acc_id.clone())
+				.call(|address_book| address_book.identity_contract());
+
+			let get_identity_contract_result = client
+				.call_dry_run(&ink_e2e::bob(), &get_identity_contract, 0, None)
+				.await
+				.return_value();
+			assert_eq!(get_identity_contract_result, identity_acc_id);
+
+			Ok(())
 		}
 	}
 }

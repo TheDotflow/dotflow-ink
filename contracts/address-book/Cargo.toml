@@ -12,6 +12,7 @@ scale-info = { version = "2.6", default-features = false, features = ["derive"],
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
+identity = { path = "../identity", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
 path = "lib.rs"
@@ -22,6 +23,7 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
+    "identity/std",
 ]
 ink-as-dependency = []
 e2e-tests = []

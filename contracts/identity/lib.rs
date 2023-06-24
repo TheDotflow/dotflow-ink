@@ -8,6 +8,8 @@ mod tests;
 
 mod types;
 
+pub use self::identity::{Identity, IdentityRef};
+
 #[macro_export]
 macro_rules! ensure {
 	( $x:expr, $y:expr $(,)? ) => {{
