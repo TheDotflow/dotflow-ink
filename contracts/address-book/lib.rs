@@ -23,7 +23,7 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum Error {
 	AddressBookAlreadyCreated,
-	AddressBookNotExist,
+	AddressBookDoesntExist,
 }
 
 #[ink::contract]
@@ -75,7 +75,7 @@ mod address_book {
 		pub fn remove_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			ensure!(self.address_book_of.get(caller).is_some(), Error::AddressBookNotExist);
+			ensure!(self.address_book_of.get(caller).is_some(), Error::AddressBookDoesntExist);
 
 			self.address_book_of.remove(caller);
 

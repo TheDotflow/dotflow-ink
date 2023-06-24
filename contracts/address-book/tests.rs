@@ -33,7 +33,7 @@ fn create_address_book_works() {
 fn remove_address_book_works() {
 	let mut book = AddressBook::new();
 
-	assert_eq!(book.remove_address_book(), Err(Error::AddressBookNotExist));
+	assert_eq!(book.remove_address_book(), Err(Error::AddressBookDoesntExist));
 	assert_eq!(book.create_address_book(), Ok(()));
 	assert_eq!(book.remove_address_book(), Ok(()));
 }
