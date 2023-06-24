@@ -159,6 +159,7 @@ mod address_book {
 				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
 
 			address_book.remove_identity(identity_no)?;
+			self.address_book_of.insert(caller, &address_book);
 
 			self.env().emit_event(IdentityRemoved { owner: caller, identity: identity_no });
 
