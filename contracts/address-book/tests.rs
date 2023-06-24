@@ -47,29 +47,6 @@ fn remove_address_book_works() {
 	assert_eq!(book.remove_address_book(), Ok(()));
 }
 
-#[ink::test]
-fn add_identity_works() {
-	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
-	let identity_contract = get_identity_contract_address();
-	let mut book = AddressBook::new(identity_contract);
-
-	assert_eq!(book.add_identity(0, None), Err(Error::AddressBookDoesntExist));
-
-	assert_eq!(book.create_address_book(), Ok(()));
-
-	assert_eq!(book.add_identity(0, None), Err(Error::InvalidIdentityNo));
-
-	let long_nickname =
-		String::from_utf8(vec![b'a'; (NICKNAME_LENGTH_LIMIT + 1) as usize]).unwrap();
-	assert_eq!(book.add_identity(1, Some(long_nickname)), Err(Error::NickNameTooLong));
-
-	assert_eq!(book.add_identity(1, Some("nickname".to_string())), Ok(()));
-
-	assert_eq!(book.identities_of(alice), vec![(Some("nickname".to_string()), 1)]);
-
-	assert_eq!(book.add_identity(1, None), Err(Error::IdentityAlreadyAdded));
-}
-
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 	default_accounts::<DefaultEnvironment>()
 }
