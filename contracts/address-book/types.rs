@@ -16,7 +16,7 @@ pub type Nickname = String;
 pub struct AddressBookInfo {
 	/// All the identities that are part of an address book. Each identity can
 	/// have an optional nickname.
-	identities: Vec<(Option<Nickname>, IdentityNo)>,
+	pub(crate) identities: Vec<(Option<Nickname>, IdentityNo)>,
 }
 
 impl AddressBookInfo {
