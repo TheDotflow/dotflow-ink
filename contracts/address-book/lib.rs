@@ -232,6 +232,7 @@ mod address_book {
 				.expect("instantiate failed")
 				.account_id;
 
+			// Alice creates an address book
 			let create_address_book_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.create_address_book());
 			client
@@ -242,9 +243,10 @@ mod address_book {
 			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
 
-			// Cannot add an identity to the address book that does not exist.
+			// Error: Alice tries to add an identity that hasn't been created yet.
 			assert!(client.call(&ink_e2e::alice(), add_identity_call, 0, None).await.is_err());
 
+			// Bob creates his identity
 			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
 				.call(|identity| identity.create_identity());
 			client
@@ -252,7 +254,7 @@ mod address_book {
 				.await
 				.expect("failed to create an identity");
 
-			let add_identity_with_to_long_nickname_call =
+			let add_identity_with_too_long_nickname_call =
 				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
 					address_book.add_identity(
 						0, // identityNo
@@ -265,16 +267,25 @@ mod address_book {
 
 			// The nickname of the identity has to be less or equal to the `NICKNAME_LENGTH_LIMIT`.
 			assert!(client
-				.call(&ink_e2e::alice(), add_identity_with_to_long_nickname_call, 0, None)
+				.call(&ink_e2e::alice(), add_identity_with_too_long_nickname_call, 0, None)
 				.await
 				.is_err());
 
+			// Now alice can successfully add Bob's identity to the address book.
 			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
 			client
 				.call(&ink_e2e::alice(), add_identity_call, 0, None)
 				.await
 				.expect("failed to add an identity into an address book");
+
+			// Error: Cannot add the same identity twice
+			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			assert!(client
+				.call(&ink_e2e::alice(), call_add_same_identity_twice, 0, None)
+				.await
+				.is_err());
 
 			Ok(())
 		}
