@@ -262,26 +262,12 @@ mod identity {
 			}
 		}
 
-<<<<<<< Updated upstream
 		/// A list of all the available networks each associated with a `NetworkId`.
 		#[ink(message)]
 		pub fn available_networks(&self) -> Vec<(NetworkId, NetworkInfo)> {
 			(0..self.network_id_count)
 				.map(|id| (id, self.network_info_of(id)))
 				.filter_map(|(id, maybe_network)| maybe_network.map(|info| (id, info)))
-=======
-		#[ink(message)]
-		pub fn network_count(&self) -> u32 {
-			self.network_id_count
-		}
-
-		/// A list of all the available networks each associated with a `NetworkId`.
-		#[ink(message)]
-		pub fn available_networks(&self) -> Vec<(NetworkId, String)> {
-			(0..self.network_id_count)
-				.map(|id| (id, self.network_name_of(id)))
-				.filter_map(|(id, maybe_network)| maybe_network.map(|name| (id, name)))
->>>>>>> Stashed changes
 				.collect()
 		}
 
