@@ -22,10 +22,20 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum Error {
+	/// The user already has an address book
 	AddressBookAlreadyCreated,
+	/// The user doesn't have an address book yet
 	AddressBookDoesntExist,
+	/// The caller is not the contract owner
 	NotContractOwner,
+	/// Address of the identity contract is already set
 	IdentityContractAlreadySet,
+	/// Identity contract address is not set
+	IdentityContractNotSet,
+	/// The given identity no is not valid
+	InvalidIdentityNo,
+	/// The given identity is already added
+	IdentityAlreadyAdded,
 }
 
 #[ink::contract]
@@ -33,7 +43,10 @@ mod address_book {
 	use super::*;
 	use crate::types::*;
 	use ink::{
-		env::{call::build_call, DefaultEnvironment},
+		env::{
+			call::{build_call, ExecutionInput, Selector},
+			DefaultEnvironment,
+		},
 		storage::Mapping,
 	};
 
@@ -99,8 +112,50 @@ mod address_book {
 		}
 
 		#[ink(message)]
-		pub fn add_identity(&mut self, identity_no: IdentityNo, nickname: Option<Nickname>) {
-			// TODO:
+		pub fn set_identity_contract(&mut self, address: AccountId) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			// Only the contract owner can set identity contract address
+			ensure!(caller == self.admin, Error::NotContractOwner);
+			ensure!(self.identity_contract.is_none(), Error::IdentityContractAlreadySet);
+
+			self.identity_contract = Some(address);
+
+			self.env().emit_event(IdentityContractSet { address });
+
+			Ok(())
+		}
+
+		#[ink(message)]
+		pub fn add_identity(
+			&mut self,
+			identity_no: IdentityNo,
+			nickname: Option<Nickname>,
+		) -> Result<(), Error> {
+			let caller = self.env().caller();
+			let mut address_book: AddressBookInfo = self
+				.address_book_of
+				.get(caller)
+				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
+
+			let identity_contract =
+				self.identity_contract.map_or(Err(Error::IdentityContractNotSet), Ok)?;
+
+			let identity = build_call::<DefaultEnvironment>()
+				.call(identity_contract)
+				.gas_limit(0)
+				.exec_input(
+					ExecutionInput::new(Selector::new(ink::selector_bytes!("identity")))
+						.push_arg(identity_no),
+				)
+				.returns::<Option<()>>()
+				.invoke();
+
+			ensure!(identity.is_some(), Error::InvalidIdentityNo);
+
+			address_book.add_identity(identity_no, nickname)?;
+
+			Ok(())
 		}
 
 		#[ink(message)]

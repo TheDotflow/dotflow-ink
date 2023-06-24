@@ -4,6 +4,8 @@ use ink::prelude::{string::String, vec::Vec};
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
+use crate::Error;
+
 /// Each identity is associated with a unique identifier called `IdentityNo`.
 pub type IdentityNo = u32;
 
@@ -20,8 +22,19 @@ pub struct AddressBookInfo {
 }
 
 impl AddressBookInfo {
-	pub fn add_identity(identity_no: IdentityNo, nickname: Option<Nickname>) {
-		// TODO:
+	pub fn add_identity(
+		&mut self,
+		identity_no: IdentityNo,
+		nickname: Option<Nickname>,
+	) -> Result<(), Error> {
+		ensure!(
+			!self.identities.clone().into_iter().any(|address| address.1 == identity_no),
+			Error::AddressAlreadyAdded
+		);
+
+		self.identities.push((nickname, identity_no));
+
+		Ok(())
 	}
 
 	pub fn remove_identity(identity_no: IdentityNo) {
