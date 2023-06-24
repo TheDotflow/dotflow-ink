@@ -92,7 +92,8 @@ mod address_book {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
-		/// Creates an address book for a user
+		/// Returns the address of the identity contract that is used by the
+		/// address book.
 		#[ink(message)]
 		pub fn identity_contract(&self) -> AccountId {
 			self.identity_contract
