@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::prelude::vec::Vec;
+use ink::prelude::{vec::Vec};
 #[cfg(test)]
 mod tests;
 
@@ -84,6 +84,7 @@ mod address_book {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
+		/// Creates an address book for a user
 		#[ink(message)]
 		pub fn identity_contract(&self) -> AccountId {
 			self.identity_contract
