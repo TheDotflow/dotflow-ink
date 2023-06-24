@@ -2,22 +2,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use common::types::*;
+use common::{ensure, types::*};
 use ink::prelude::vec::Vec;
 
 #[cfg(test)]
 mod tests;
 
 mod types;
-
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			return Err($y)
-		}
-	}};
-}
 
 /// The maximum number of chars the nickname can hold.
 const NICKNAME_LENGTH_LIMIT: u8 = 16;

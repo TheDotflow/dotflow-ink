@@ -8,16 +8,9 @@ mod tests;
 
 mod types;
 
-pub use self::identity::{Identity, IdentityRef};
+use common::ensure;
 
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			return Err($y)
-		}
-	}};
-}
+pub use self::identity::{Identity, IdentityRef};
 
 /// Encrypted addresses should never exceed this size limit.
 const ADDRESS_SIZE_LIMIT: usize = 128;
