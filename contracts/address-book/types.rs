@@ -4,7 +4,7 @@ use ink::prelude::{string::String, vec::Vec};
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 
-use crate::Error;
+use crate::*;
 
 /// Each identity is associated with a unique identifier called `IdentityNo`.
 pub type IdentityNo = u32;
@@ -29,7 +29,7 @@ impl AddressBookInfo {
 	) -> Result<(), Error> {
 		ensure!(
 			!self.identities.clone().into_iter().any(|address| address.1 == identity_no),
-			Error::AddressAlreadyAdded
+			Error::IdentityAlreadyAdded
 		);
 
 		self.identities.push((nickname, identity_no));

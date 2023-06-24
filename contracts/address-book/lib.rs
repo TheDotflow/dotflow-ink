@@ -26,16 +26,12 @@ pub enum Error {
 	AddressBookAlreadyCreated,
 	/// The user doesn't have an address book yet
 	AddressBookDoesntExist,
-	/// The caller is not the contract owner
-	NotContractOwner,
-	/// Address of the identity contract is already set
-	IdentityContractAlreadySet,
-	/// Identity contract address is not set
-	IdentityContractNotSet,
 	/// The given identity no is not valid
 	InvalidIdentityNo,
 	/// The given identity is already added
 	IdentityAlreadyAdded,
+	/// The given nickname is too long
+	NickNameTooLong,
 }
 
 #[ink::contract]
@@ -112,21 +108,6 @@ mod address_book {
 		}
 
 		#[ink(message)]
-		pub fn set_identity_contract(&mut self, address: AccountId) -> Result<(), Error> {
-			let caller = self.env().caller();
-
-			// Only the contract owner can set identity contract address
-			ensure!(caller == self.admin, Error::NotContractOwner);
-			ensure!(self.identity_contract.is_none(), Error::IdentityContractAlreadySet);
-
-			self.identity_contract = Some(address);
-
-			self.env().emit_event(IdentityContractSet { address });
-
-			Ok(())
-		}
-
-		#[ink(message)]
 		pub fn add_identity(
 			&mut self,
 			identity_no: IdentityNo,
@@ -138,11 +119,8 @@ mod address_book {
 				.get(caller)
 				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
 
-			let identity_contract =
-				self.identity_contract.map_or(Err(Error::IdentityContractNotSet), Ok)?;
-
 			let identity = build_call::<DefaultEnvironment>()
-				.call(identity_contract)
+				.call(self.identity_contract)
 				.gas_limit(0)
 				.exec_input(
 					ExecutionInput::new(Selector::new(ink::selector_bytes!("identity")))
