@@ -24,13 +24,17 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 pub enum Error {
 	AddressBookAlreadyCreated,
 	AddressBookDoesntExist,
+	NotContractOwner,
 }
 
 #[ink::contract]
 mod address_book {
 	use super::*;
 	use crate::types::*;
-	use ink::storage::Mapping;
+	use ink::{
+		env::{call::build_call, DefaultEnvironment},
+		storage::Mapping,
+	};
 
 	#[ink(storage)]
 	pub struct AddressBook {
@@ -38,6 +42,12 @@ mod address_book {
 		///
 		/// NOTE: One account can only own one address book.
 		pub(crate) address_book_of: Mapping<AccountId, AddressBookInfo>,
+
+		/// Address of the `Identity` contract
+		pub(crate) identity_contract: Option<AccountId>,
+
+		/// Contract ownerSome
+		pub(crate) admin: AccountId,
 	}
 
 	#[ink(event)]
@@ -52,10 +62,17 @@ mod address_book {
 		pub(crate) owner: AccountId,
 	}
 
+	#[ink(event)]
+	pub struct IdentityContractSet {
+		pub(crate) address: AccountId,
+	}
+
 	impl AddressBook {
 		#[ink(constructor)]
 		pub fn new() -> Self {
-			AddressBook { address_book_of: Default::default() }
+			let admin: AccountId = Self::env().caller();
+
+			AddressBook { address_book_of: Default::default(), admin, identity_contract: None }
 		}
 
 		#[ink(message)]
@@ -80,6 +97,20 @@ mod address_book {
 			self.address_book_of.remove(caller);
 
 			self.env().emit_event(AddressBookRemoved { owner: caller });
+
+			Ok(())
+		}
+
+		#[ink(message)]
+		pub fn set_identity_contract(&mut self, address: AccountId) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			// Only the contract owner can set identity contract address
+			ensure!(caller == self.admin, Error::NotContractOwner);
+
+			self.identity_contract = Some(address);
+
+			self.env().emit_event(IdentityContractSet { address });
 
 			Ok(())
 		}

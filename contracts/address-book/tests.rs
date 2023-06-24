@@ -1,8 +1,11 @@
 //! Ink! integration tests convering the address book contract functionality.
 use crate::{address_book::*, types::*, *};
-use ink::env::{
-	test::{default_accounts, DefaultAccounts},
-	DefaultEnvironment,
+use ink::{
+	env::{
+		test::{default_accounts, set_caller, DefaultAccounts},
+		DefaultEnvironment,
+	},
+	primitives::AccountId,
 };
 use ink_e2e::subxt::storage::address;
 
@@ -13,6 +16,8 @@ fn constructor_works() {
 
 	// The `address_book_of` storage mapping should be empty.
 	assert!(address_book.address_book_of.get(alice).is_none());
+	assert_eq!(address_book.admin, alice);
+	assert!(address_book.identity_contract.is_none());
 }
 
 #[ink::test]
@@ -36,6 +41,23 @@ fn remove_address_book_works() {
 	assert_eq!(book.remove_address_book(), Err(Error::AddressBookDoesntExist));
 	assert_eq!(book.create_address_book(), Ok(()));
 	assert_eq!(book.remove_address_book(), Ok(()));
+}
+
+#[ink::test]
+fn set_identity_contract_works() {
+	let mut book = AddressBook::new();
+	let DefaultAccounts::<DefaultEnvironment> { bob, .. } = get_default_accounts();
+
+	assert!(book.identity_contract.is_none());
+
+	let mock_address = AccountId::from([0x01; 32]);
+
+	assert_eq!(book.set_identity_contract(mock_address), Ok(()));
+	assert_eq!(book.identity_contract, Some(mock_address));
+
+	set_caller::<DefaultEnvironment>(bob);
+
+	assert_eq!(book.set_identity_contract(mock_address), Err(Error::NotContractOwner));
 }
 
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
