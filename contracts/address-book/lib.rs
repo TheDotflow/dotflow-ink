@@ -76,11 +76,14 @@ mod address_book {
 	}
 
 	impl AddressBook {
+		/// Constructor
+		/// Instantiate with the address of `Identity` contract
 		#[ink(constructor)]
 		pub fn new(identity_contract: AccountId) -> Self {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
+		/// Creates an address book for a user
 		#[ink(message)]
 		pub fn create_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -94,6 +97,7 @@ mod address_book {
 			Ok(())
 		}
 
+		/// Removes the address book of a user
 		#[ink(message)]
 		pub fn remove_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -107,6 +111,7 @@ mod address_book {
 			Ok(())
 		}
 
+		/// Adds an identity to the user's address book
 		#[ink(message)]
 		pub fn add_identity(
 			&mut self,
@@ -136,14 +141,26 @@ mod address_book {
 			Ok(())
 		}
 
+		/// Removes an identity from the user's address book
 		#[ink(message)]
 		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
 			// TODO:
 		}
 
+		/// Update nickname of an identity
 		#[ink(message)]
 		pub fn update_nickname(&mut self, identity_no: IdentityNo, new_nickname: Option<Nickname>) {
 			// TODO:
+		}
+
+		/// Returns the identities stored in the address book of a user
+		#[ink(message)]
+		pub fn identities_of(&self, account: AccountId) -> Vec<IdentityRecord> {
+			if let Some(address_book) = self.address_book_of.get(account) {
+				address_book.identities
+			} else {
+				Vec::default()
+			}
 		}
 	}
 }
