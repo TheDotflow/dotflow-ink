@@ -1,7 +1,7 @@
 <h1 align="center">dotflow-ink</h1>
 
 <p align="center">
- <img width="400" src="https://raw.githubusercontent.com/w3f/Grants-Program/00855ef70bc503433dc9fccc057c2f66a426a82b/static/img/badge_black.svg" />
+ <img width="400" src="./images/w3f.png" />
 </p>
 <p align="center">
  <img src="https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg" href="https://github.com/paritytech/ink" />
