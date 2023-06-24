@@ -1,4 +1,4 @@
-//! Types used in multiple contracts.
+//! Types used in the dotflow contracts.
 
 use ink::prelude::{string::String, vec::Vec};
 

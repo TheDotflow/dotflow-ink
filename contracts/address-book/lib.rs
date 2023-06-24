@@ -175,7 +175,7 @@ mod address_book {
 
 	#[cfg(all(test, feature = "e2e-tests"))]
 	mod e2e_tests {
-		use super::AddressBookRef;
+		use super::*;
 		use identity::IdentityRef;
 		use ink_e2e::build_message;
 
@@ -213,7 +213,7 @@ mod address_book {
 
 		#[ink_e2e::test]
 		async fn add_identity_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
-			let identity_constructor = IdentityRef::init_with_networks(vec![]);
+			let identity_constructor = IdentityRef::new();
 
 			let identity_acc_id = client
 				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
@@ -228,6 +228,50 @@ mod address_book {
 				.await
 				.expect("instantiate failed")
 				.account_id;
+
+			let create_address_book_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.create_address_book());
+			client
+				.call(&ink_e2e::alice(), create_address_book_call, 0, None)
+				.await
+				.expect("failed to create an address book");
+
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+
+			// Cannot add an identity to the address book that does not exist.
+			assert!(client.call(&ink_e2e::alice(), add_identity_call, 0, None).await.is_err());
+
+			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
+				.call(|identity| identity.create_identity());
+			client
+				.call(&ink_e2e::bob(), create_identity_call, 0, None)
+				.await
+				.expect("failed to create an identity");
+
+			let add_identity_with_to_long_nickname_call =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.add_identity(
+						0, // identityNo
+						Some(
+							String::from_utf8(vec![b'a'; (NICKNAME_LENGTH_LIMIT + 1) as usize])
+								.unwrap(),
+						),
+					)
+				});
+
+			// The nickname of the identity has to be less or equal to the `NICKNAME_LENGTH_LIMIT`.
+			assert!(client
+				.call(&ink_e2e::alice(), add_identity_with_to_long_nickname_call, 0, None)
+				.await
+				.is_err());
+
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			client
+				.call(&ink_e2e::alice(), add_identity_call, 0, None)
+				.await
+				.expect("failed to add an identity into an address book");
 
 			Ok(())
 		}
