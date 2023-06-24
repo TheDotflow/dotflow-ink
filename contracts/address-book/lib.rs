@@ -44,11 +44,9 @@ mod address_book {
 		/// NOTE: One account can only own one address book.
 		pub(crate) address_book_of: Mapping<AccountId, AddressBookInfo>,
 
-		/// Address of the `Identity` contract
-		pub(crate) identity_contract: Option<AccountId>,
-
-		/// Contract ownerSome
-		pub(crate) admin: AccountId,
+		/// Address of the `Identity` contract. This is set during contract
+		/// deployment and can't be changed later.
+		pub(crate) identity_contract: AccountId,
 	}
 
 	#[ink(event)]
@@ -70,10 +68,8 @@ mod address_book {
 
 	impl AddressBook {
 		#[ink(constructor)]
-		pub fn new() -> Self {
-			let admin: AccountId = Self::env().caller();
-
-			AddressBook { address_book_of: Default::default(), admin, identity_contract: None }
+		pub fn new(identity_contract: AccountId) -> Self {
+			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
 		#[ink(message)]
@@ -98,21 +94,6 @@ mod address_book {
 			self.address_book_of.remove(caller);
 
 			self.env().emit_event(AddressBookRemoved { owner: caller });
-
-			Ok(())
-		}
-
-		#[ink(message)]
-		pub fn set_identity_contract(&mut self, address: AccountId) -> Result<(), Error> {
-			let caller = self.env().caller();
-
-			// Only the contract owner can set identity contract address
-			ensure!(caller == self.admin, Error::NotContractOwner);
-			ensure!(self.identity_contract.is_none(), Error::IdentityContractAlreadySet);
-
-			self.identity_contract = Some(address);
-
-			self.env().emit_event(IdentityContractSet { address });
 
 			Ok(())
 		}
