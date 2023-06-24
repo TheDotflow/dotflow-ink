@@ -2,6 +2,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
+#[cfg(test)]
+mod tests;
+
 mod types;
 
 #[macro_export]
@@ -34,7 +37,7 @@ mod address_book {
 		/// Each address book is associated with an `AccountId`.
 		///
 		/// NOTE: One account can only own one address book.
-		address_book_of: Mapping<AccountId, AddressBookInfo>,
+		pub(crate) address_book_of: Mapping<AccountId, AddressBookInfo>,
 	}
 
 	#[ink(event)]
