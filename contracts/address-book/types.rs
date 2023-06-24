@@ -30,7 +30,7 @@ impl AddressBookInfo {
 		nickname: Option<Nickname>,
 	) -> Result<(), Error> {
 		ensure!(
-			!self.identities.clone().into_iter().any(|address| address.1 == identity_no),
+			!self.identities.clone().into_iter().any(|identity| identity.1 == identity_no),
 			Error::IdentityAlreadyAdded
 		);
 
@@ -43,8 +43,17 @@ impl AddressBookInfo {
 		Ok(())
 	}
 
-	pub fn remove_identity(identity_no: IdentityNo) {
-		// TODO:
+	pub fn remove_identity(&mut self, identity_no: IdentityNo) -> Result<(), Error> {
+		let identity = self
+			.identities
+			.clone()
+			.into_iter()
+			.position(|identity| identity.1 == identity_no)
+			.map_or(Err(Error::InvalidIdentityNo), Ok)?;
+
+		self.identities.remove(identity);
+
+		Ok(())
 	}
 
 	pub fn update_nickname(identity_no: IdentityNo, new_nickname: Option<Nickname>) {
