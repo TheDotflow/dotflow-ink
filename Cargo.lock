@@ -34,6 +34,7 @@ dependencies = [
 name = "address-book"
 version = "0.1.0"
 dependencies = [
+ "common",
  "identity",
  "ink",
  "ink_e2e",
@@ -527,6 +528,15 @@ dependencies = [
  "atty",
  "lazy_static",
  "winapi",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "ink",
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -1423,6 +1433,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 name = "identity"
 version = "0.1.0"
 dependencies = [
+ "common",
  "ink",
  "ink_e2e",
  "parity-scale-codec",

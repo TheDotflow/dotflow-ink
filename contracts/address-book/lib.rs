@@ -2,7 +2,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::prelude::{vec::Vec};
+use common::types::*;
+use ink::prelude::vec::Vec;
+
 #[cfg(test)]
 mod tests;
 
@@ -205,6 +207,27 @@ mod address_book {
 				.await
 				.return_value();
 			assert_eq!(get_identity_contract_result, identity_acc_id);
+
+			Ok(())
+		}
+
+		#[ink_e2e::test]
+		async fn add_identity_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::init_with_networks(vec![]);
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
 
 			Ok(())
 		}

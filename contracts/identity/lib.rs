@@ -43,8 +43,8 @@ pub enum Error {
 mod identity {
 	use super::*;
 	use crate::types::*;
+	use common::types::{NetworkInfo, Ss58Prefix, *};
 	use ink::storage::Mapping;
-	use types::{NetworkInfo, Ss58Prefix};
 
 	/// Storage
 	#[ink(storage)]

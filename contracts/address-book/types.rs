@@ -6,9 +6,6 @@ use ink::storage::traits::StorageLayout;
 
 use crate::*;
 
-/// Each identity is associated with a unique identifier called `IdentityNo`.
-pub type IdentityNo = u32;
-
 pub type Nickname = String;
 
 pub type IdentityRecord = (Option<Nickname>, IdentityNo);
