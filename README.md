@@ -58,6 +58,8 @@ cd contracts/identity/
 cargo contract build --release
 ```
 4. Run e2e tests:
+
+   **We should have `substrate-contracts-node` installed in the path to run e2e tests.**
 ```
 # In the root of the project
 cargo test --features e2e-tests
