@@ -1,5 +1,11 @@
-# dotflow-ink
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)
+<h1 align="center">dotflow-ink</h1>
+
+<p align="center">
+ <img width="400" src="https://raw.githubusercontent.com/w3f/Grants-Program/00855ef70bc503433dc9fccc057c2f66a426a82b/static/img/badge_black.svg" />
+</p>
+<p align="center">
+ <img src="https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg" href="https://github.com/paritytech/ink" />
+</p>
 
 ## Inspiration
 
