@@ -25,6 +25,7 @@ pub enum Error {
 	AddressBookAlreadyCreated,
 	AddressBookDoesntExist,
 	NotContractOwner,
+	IdentityContractAlreadySet,
 }
 
 #[ink::contract]
@@ -107,6 +108,7 @@ mod address_book {
 
 			// Only the contract owner can set identity contract address
 			ensure!(caller == self.admin, Error::NotContractOwner);
+			ensure!(self.identity_contract.is_none(), Error::IdentityContractAlreadySet);
 
 			self.identity_contract = Some(address);
 

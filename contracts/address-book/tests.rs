@@ -55,6 +55,8 @@ fn set_identity_contract_works() {
 	assert_eq!(book.set_identity_contract(mock_address), Ok(()));
 	assert_eq!(book.identity_contract, Some(mock_address));
 
+	assert_eq!(book.set_identity_contract(mock_address), Err(Error::IdentityContractAlreadySet));
+
 	set_caller::<DefaultEnvironment>(bob);
 
 	assert_eq!(book.set_identity_contract(mock_address), Err(Error::NotContractOwner));
