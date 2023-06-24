@@ -24,13 +24,18 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 pub enum Error {
 	AddressBookAlreadyCreated,
 	AddressBookDoesntExist,
+	NotContractOwner,
+	IdentityContractAlreadySet,
 }
 
 #[ink::contract]
 mod address_book {
 	use super::*;
 	use crate::types::*;
-	use ink::storage::Mapping;
+	use ink::{
+		env::{call::build_call, DefaultEnvironment},
+		storage::Mapping,
+	};
 
 	#[ink(storage)]
 	pub struct AddressBook {
@@ -38,6 +43,10 @@ mod address_book {
 		///
 		/// NOTE: One account can only own one address book.
 		pub(crate) address_book_of: Mapping<AccountId, AddressBookInfo>,
+
+		/// Address of the `Identity` contract. This is set during contract
+		/// deployment and can't be changed later.
+		pub(crate) identity_contract: AccountId,
 	}
 
 	#[ink(event)]
@@ -52,10 +61,15 @@ mod address_book {
 		pub(crate) owner: AccountId,
 	}
 
+	#[ink(event)]
+	pub struct IdentityContractSet {
+		pub(crate) address: AccountId,
+	}
+
 	impl AddressBook {
 		#[ink(constructor)]
-		pub fn new() -> Self {
-			AddressBook { address_book_of: Default::default() }
+		pub fn new(identity_contract: AccountId) -> Self {
+			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
 		#[ink(message)]
