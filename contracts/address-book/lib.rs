@@ -2,20 +2,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::prelude::{vec::Vec};
+use common::{ensure, types::*};
+use ink::prelude::vec::Vec;
+
 #[cfg(test)]
 mod tests;
 
 mod types;
-
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			return Err($y)
-		}
-	}};
-}
 
 /// The maximum number of chars the nickname can hold.
 const NICKNAME_LENGTH_LIMIT: u8 = 16;
@@ -76,12 +69,25 @@ mod address_book {
 		pub(crate) address: AccountId,
 	}
 
+	#[ink(event)]
+	pub struct IdentityAdded {
+		pub(crate) owner: AccountId,
+		pub(crate) identity: IdentityNo,
+	}
+
 	impl AddressBook {
 		/// Constructor
 		/// Instantiate with the address of `Identity` contract
 		#[ink(constructor)]
 		pub fn new(identity_contract: AccountId) -> Self {
 			AddressBook { address_book_of: Default::default(), identity_contract }
+		}
+
+		/// Returns the address of the identity contract that is used by the
+		/// address book.
+		#[ink(message)]
+		pub fn identity_contract(&self) -> AccountId {
+			self.identity_contract
 		}
 
 		/// Creates an address book for a user
@@ -93,7 +99,7 @@ mod address_book {
 			self.address_book_of
 				.insert(caller, &AddressBookInfo { identities: Default::default() });
 
-			self.env().emit_event(AddressBookCreated { owner: caller });
+			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookCreated { owner: caller });
 
 			Ok(())
 		}
@@ -107,7 +113,7 @@ mod address_book {
 
 			self.address_book_of.remove(caller);
 
-			self.env().emit_event(AddressBookRemoved { owner: caller });
+			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookRemoved { owner: caller });
 
 			Ok(())
 		}
@@ -139,6 +145,11 @@ mod address_book {
 
 			address_book.add_identity(identity_no, nickname)?;
 
+			ink::env::emit_event::<DefaultEnvironment, _>(IdentityAdded {
+				owner: caller,
+				identity: identity_no,
+			});
+
 			Ok(())
 		}
 
@@ -162,6 +173,110 @@ mod address_book {
 			} else {
 				Vec::default()
 			}
+		}
+	}
+
+	#[cfg(all(test, feature = "e2e-tests"))]
+	mod e2e_tests {
+		use super::*;
+		use identity::IdentityRef;
+		use ink_e2e::build_message;
+
+		type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+		#[ink_e2e::test]
+		async fn constructor_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::new();
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let get_identity_contract = build_message::<AddressBookRef>(book_acc_id.clone())
+				.call(|address_book| address_book.identity_contract());
+
+			let get_identity_contract_result = client
+				.call_dry_run(&ink_e2e::bob(), &get_identity_contract, 0, None)
+				.await
+				.return_value();
+			assert_eq!(get_identity_contract_result, identity_acc_id);
+
+			Ok(())
+		}
+
+		#[ink_e2e::test]
+		async fn add_identity_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::new();
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let create_address_book_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.create_address_book());
+			client
+				.call(&ink_e2e::alice(), create_address_book_call, 0, None)
+				.await
+				.expect("failed to create an address book");
+
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+
+			// Cannot add an identity to the address book that does not exist.
+			assert!(client.call(&ink_e2e::alice(), add_identity_call, 0, None).await.is_err());
+
+			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
+				.call(|identity| identity.create_identity());
+			client
+				.call(&ink_e2e::bob(), create_identity_call, 0, None)
+				.await
+				.expect("failed to create an identity");
+
+			let add_identity_with_to_long_nickname_call =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.add_identity(
+						0, // identityNo
+						Some(
+							String::from_utf8(vec![b'a'; (NICKNAME_LENGTH_LIMIT + 1) as usize])
+								.unwrap(),
+						),
+					)
+				});
+
+			// The nickname of the identity has to be less or equal to the `NICKNAME_LENGTH_LIMIT`.
+			assert!(client
+				.call(&ink_e2e::alice(), add_identity_with_to_long_nickname_call, 0, None)
+				.await
+				.is_err());
+
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			client
+				.call(&ink_e2e::alice(), add_identity_call, 0, None)
+				.await
+				.expect("failed to add an identity into an address book");
+
+			Ok(())
 		}
 	}
 }

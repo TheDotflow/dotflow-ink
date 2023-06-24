@@ -8,14 +8,9 @@ mod tests;
 
 mod types;
 
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			return Err($y)
-		}
-	}};
-}
+use common::ensure;
+
+pub use self::identity::{Identity, IdentityRef};
 
 /// Encrypted addresses should never exceed this size limit.
 const ADDRESS_SIZE_LIMIT: usize = 128;
@@ -41,8 +36,8 @@ pub enum Error {
 mod identity {
 	use super::*;
 	use crate::types::*;
+	use common::types::{NetworkInfo, Ss58Prefix, *};
 	use ink::storage::Mapping;
-	use types::{NetworkInfo, Ss58Prefix};
 
 	/// Storage
 	#[ink(storage)]
