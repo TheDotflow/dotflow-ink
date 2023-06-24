@@ -27,7 +27,7 @@ impl AddressBookInfo {
 		nickname: Option<Nickname>,
 	) -> Result<(), Error> {
 		ensure!(
-			!self.identities.clone().into_iter().any(|address| address.1 == identity_no),
+			!self.identities.iter().any(|identity| identity.1 == identity_no),
 			Error::IdentityAlreadyAdded
 		);
 

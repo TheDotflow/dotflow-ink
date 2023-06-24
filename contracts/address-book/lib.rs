@@ -144,6 +144,7 @@ mod address_book {
 			ensure!(identity.is_some(), Error::InvalidIdentityNo);
 
 			address_book.add_identity(identity_no, nickname)?;
+			self.address_book_of.insert(caller, &address_book);
 
 			ink::env::emit_event::<DefaultEnvironment, _>(IdentityAdded {
 				owner: caller,
@@ -279,7 +280,7 @@ mod address_book {
 				.await
 				.expect("failed to add an identity into an address book");
 
-			// Error: Cannot add the same identity twice
+			// Error: Cannot add the same identity twice.
 			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
 			assert!(client
