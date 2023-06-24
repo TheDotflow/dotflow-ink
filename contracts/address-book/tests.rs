@@ -66,6 +66,8 @@ fn add_identity_works() {
 	assert_eq!(book.add_identity(1, Some("nickname".to_string())), Ok(()));
 
 	assert_eq!(book.identities_of(alice), vec![(Some("nickname".to_string()), 1)]);
+
+	assert_eq!(book.add_identity(1, None), Err(Error::IdentityAlreadyAdded));
 }
 
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
