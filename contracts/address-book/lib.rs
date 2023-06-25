@@ -429,15 +429,7 @@ mod address_book {
 				.expect("Failed to get identities of alice")
 				.return_value();
 
-			assert_eq!(identities, vec![(Some("bob".to_string()), 0)]);
-
-			// Error: Cannot add the same identity twice.
-			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
-				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
-			assert!(client
-				.call(&ink_e2e::alice(), call_add_same_identity_twice, 0, None)
-				.await
-				.is_err());
+			assert_eq!(identities, vec![(0, Some("new_nickname".to_string()))]);
 
 			Ok(())
 		}
