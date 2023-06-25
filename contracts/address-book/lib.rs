@@ -411,7 +411,7 @@ mod address_book {
 				.expect("Failed to get identities of alice")
 				.return_value();
 
-			assert_eq!(identities, vec![(Some("bob".to_string()), 0)]);
+			assert_eq!(identities, vec![(0, Some("bob".to_string()))]);
 
 			// Fails. Cannot remove an identity that is not part of the address book.
 
