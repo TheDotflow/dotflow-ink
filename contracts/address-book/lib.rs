@@ -16,17 +16,17 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum Error {
-	/// The user already has an address book
+	/// The user already has an address book.
 	AddressBookAlreadyCreated,
-	/// The user doesn't have an address book yet
+	/// The user doesn't have an address book yet.
 	AddressBookDoesntExist,
-	/// The given identity no is not valid
+	/// The given `IdentityNo` is not valid.
 	IdentityDoesntExist,
-	/// The given identity no is not added yet.
+	/// The given `IdentityNo` is not added yet.
 	IdentityNotAdded,
-	/// The given identity is already added
+	/// The given identity is already added.
 	IdentityAlreadyAdded,
-	/// The given nickname is too long
+	/// The given nickname is too long.
 	NickNameTooLong,
 }
 
@@ -178,7 +178,6 @@ mod address_book {
 				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
 
 			address_book.update_nickname(identity_no, new_nickname.clone())?;
-
 			self.address_book_of.insert(caller, &address_book);
 
 			ink::env::emit_event::<DefaultEnvironment, _>(NickNameUpdated {

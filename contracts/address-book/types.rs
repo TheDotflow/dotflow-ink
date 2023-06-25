@@ -53,13 +53,14 @@ impl AddressBookInfo {
 			ensure!(name.len() <= NICKNAME_LENGTH_LIMIT as usize, Error::NickNameTooLong);
 		}
 
-		if let Some(index) =
-			self.identities.clone().into_iter().position(|record| record.1 == identity_no)
-		{
-			self.identities[index] = (new_nickname, identity_no);
-			Ok(())
-		} else {
-			Err(Error::IdentityNotAdded)
-		}
+		let index = self
+			.identities
+			.iter()
+			.position(|identity| identity.1 == identity_no)
+			.map_or(Err(Error::IdentityNotAdded), Ok)?;
+
+		self.identities[index] = (new_nickname, identity_no);
+
+		Ok(())
 	}
 }
