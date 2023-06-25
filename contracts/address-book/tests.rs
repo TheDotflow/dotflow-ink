@@ -58,6 +58,3 @@ fn get_identity_contract_address() -> AccountId {
 		0x50, 0xd5,
 	])
 }
-
-#[cfg(all(test, feature = "e2e-tests"))]
-mod e2e_tests {}
