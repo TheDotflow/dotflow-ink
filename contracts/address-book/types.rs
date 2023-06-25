@@ -46,7 +46,7 @@ impl AddressBookInfo {
 			.clone()
 			.into_iter()
 			.position(|identity| identity.1 == identity_no)
-			.map_or(Err(Error::InvalidIdentityNo), Ok)?;
+			.map_or(Err(Error::IdentityNotAdded), Ok)?;
 
 		self.identities.remove(identity);
 
