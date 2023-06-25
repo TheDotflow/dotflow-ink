@@ -8,7 +8,7 @@ use crate::*;
 
 pub type Nickname = String;
 
-pub type IdentityRecord = (Option<Nickname>, IdentityNo);
+pub type IdentityRecord = (IdentityNo, Option<Nickname>);
 
 /// The address book struct that contains all the information that the address
 /// book contract needs.
@@ -27,7 +27,7 @@ impl AddressBookInfo {
 		nickname: Option<Nickname>,
 	) -> Result<(), Error> {
 		ensure!(
-			!self.identities.iter().any(|identity| identity.1 == identity_no),
+			!self.identities.iter().any(|identity| identity.0 == identity_no),
 			Error::IdentityAlreadyAdded
 		);
 
@@ -35,7 +35,7 @@ impl AddressBookInfo {
 			ensure!(name.len() <= NICKNAME_LENGTH_LIMIT as usize, Error::NickNameTooLong);
 		}
 
-		self.identities.push((nickname, identity_no));
+		self.identities.push((identity_no, nickname));
 
 		Ok(())
 	}
@@ -65,10 +65,10 @@ impl AddressBookInfo {
 		let index = self
 			.identities
 			.iter()
-			.position(|identity| identity.1 == identity_no)
+			.position(|identity| identity.0 == identity_no)
 			.map_or(Err(Error::IdentityNotAdded), Ok)?;
 
-		self.identities[index] = (new_nickname, identity_no);
+		self.identities[index] = (identity_no, new_nickname);
 
 		Ok(())
 	}

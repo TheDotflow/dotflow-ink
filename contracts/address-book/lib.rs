@@ -56,26 +56,35 @@ mod address_book {
 
 	#[ink(event)]
 	pub struct AddressBookCreated {
+		/// The owner of the newly created address book.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
 	}
 
 	#[ink(event)]
 	pub struct AddressBookRemoved {
+		/// The owner of the removed address book.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
 	}
 
 	#[ink(event)]
 	pub struct IdentityAdded {
+		/// The owner of the address book.
+		#[ink(topic)]
 		pub(crate) owner: AccountId,
+		/// The identity added to the address book.
 		pub(crate) identity: IdentityNo,
 	}
 
 	#[ink(event)]
 	pub struct NickNameUpdated {
+		/// The owner of the address book.
 		#[ink(topic)]
+		pub(crate) owner: AccountId,
+		/// The identity that received a new nickname.
 		pub(crate) identity_no: IdentityNo,
+		/// The new nickname.
 		pub(crate) new_nickname: Option<Nickname>,
 	}
 
@@ -93,18 +102,18 @@ mod address_book {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
-		/// Returns the address of the identity contract that is used by the
-		/// address book.
+		/// Returns the address of the identity contract.
 		#[ink(message)]
 		pub fn identity_contract(&self) -> AccountId {
 			self.identity_contract
 		}
 
-		/// Creates an address book for a user.
+		/// Creates an address book for the caller.
 		#[ink(message)]
 		pub fn create_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 
+			// Only one address book per user.
 			ensure!(self.address_book_of.get(caller).is_none(), Error::AddressBookAlreadyCreated);
 			self.address_book_of
 				.insert(caller, &AddressBookInfo { identities: Default::default() });
@@ -114,7 +123,7 @@ mod address_book {
 			Ok(())
 		}
 
-		/// Removes the address book of a user.
+		/// Removes the address book of the caller.
 		#[ink(message)]
 		pub fn remove_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -141,6 +150,8 @@ mod address_book {
 				.get(caller)
 				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
 
+			// Ensure that the provided `identity_no` is existent by calling the
+			// identity contract.
 			let identity = build_call::<DefaultEnvironment>()
 				.call(self.identity_contract)
 				.gas_limit(0)
@@ -202,6 +213,7 @@ mod address_book {
 			self.address_book_of.insert(caller, &address_book);
 
 			ink::env::emit_event::<DefaultEnvironment, _>(NickNameUpdated {
+				owner: caller,
 				identity_no,
 				new_nickname,
 			});
@@ -212,11 +224,7 @@ mod address_book {
 		/// Returns the identities stored in the address book of a user.
 		#[ink(message)]
 		pub fn identities_of(&self, account: AccountId) -> Vec<IdentityRecord> {
-			if let Some(address_book) = self.address_book_of.get(account) {
-				address_book.identities
-			} else {
-				Vec::default()
-			}
+			self.address_book_of.get(account).unwrap_or_default().identities
 		}
 	}
 
@@ -336,7 +344,7 @@ mod address_book {
 				.expect("Failed to get identities of alice")
 				.return_value();
 
-			assert_eq!(identities, vec![(Some("bob".to_string()), 0)]);
+			assert_eq!(identities, vec![(0, Some("bob".to_string()))]);
 
 			// Error: Cannot add the same identity twice.
 			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
@@ -529,7 +537,7 @@ mod address_book {
 				.expect("Failed to get identities of alice")
 				.return_value();
 
-			assert_eq!(identities, vec![(Some("new_nickname".to_string()), 0)]);
+			assert_eq!(identities, vec![(0, Some("new_nickname".to_string()))]);
 
 			Ok(())
 		}
