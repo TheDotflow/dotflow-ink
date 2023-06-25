@@ -241,10 +241,10 @@ mod address_book {
 				.await
 				.expect("failed to create an address book");
 
+			// Error: Alice tries to add an identity that hasn't been created yet.
+
 			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
-
-			// Error: Alice tries to add an identity that hasn't been created yet.
 			assert!(client.call(&ink_e2e::alice(), add_identity_call, 0, None).await.is_err());
 
 			// Bob creates his identity
@@ -255,6 +255,7 @@ mod address_book {
 				.await
 				.expect("failed to create an identity");
 
+			// Alice adds an identity with too long nickname
 			let add_identity_with_too_long_nickname_call =
 				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
 					address_book.add_identity(
@@ -278,7 +279,21 @@ mod address_book {
 			client
 				.call(&ink_e2e::alice(), add_identity_call, 0, None)
 				.await
-				.expect("failed to add an identity into an address book");
+				.expect("Failed to add an identity into an address book");
+
+			// Check contract storage
+			let call_identities_of_alice =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.identities_of(ink_e2e::account_id(ink_e2e::AccountKeyring::Alice))
+				});
+
+			let identities = client
+				.call(&ink_e2e::alice(), call_identities_of_alice, 0, None)
+				.await
+				.expect("Failed to get identities of alice")
+				.return_value();
+
+			assert_eq!(identities, vec![(Some("bob".to_string()), 0)]);
 
 			// Error: Cannot add the same identity twice.
 			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
