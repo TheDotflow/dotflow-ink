@@ -40,8 +40,17 @@ impl AddressBookInfo {
 		Ok(())
 	}
 
-	pub fn remove_identity(identity_no: IdentityNo) {
-		// TODO:
+	pub fn remove_identity(&mut self, identity_no: IdentityNo) -> Result<(), Error> {
+		let identity = self
+			.identities
+			.clone()
+			.into_iter()
+			.position(|identity| identity.0 == identity_no)
+			.map_or(Err(Error::IdentityNotAdded), Ok)?;
+
+		self.identities.remove(identity);
+
+		Ok(())
 	}
 
 	pub fn update_nickname(

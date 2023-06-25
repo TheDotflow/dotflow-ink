@@ -88,9 +88,15 @@ mod address_book {
 		pub(crate) new_nickname: Option<Nickname>,
 	}
 
+	#[ink(event)]
+	pub struct IdentityRemoved {
+		pub(crate) owner: AccountId,
+		pub(crate) identity: IdentityNo,
+	}
+
 	impl AddressBook {
 		/// Constructor
-		/// Instantiate with the address of `Identity` contract
+		/// Instantiate with the address of `Identity` contract.
 		#[ink(constructor)]
 		pub fn new(identity_contract: AccountId) -> Self {
 			AddressBook { address_book_of: Default::default(), identity_contract }
@@ -171,8 +177,23 @@ mod address_book {
 
 		/// Removes an identity from the user's address book.
 		#[ink(message)]
-		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
-			// TODO:
+		pub fn remove_identity(&mut self, identity_no: IdentityNo) -> Result<(), Error> {
+			let caller = self.env().caller();
+
+			let mut address_book: AddressBookInfo = self
+				.address_book_of
+				.get(caller)
+				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
+
+			address_book.remove_identity(identity_no)?;
+			self.address_book_of.insert(caller, &address_book);
+
+			ink::env::emit_event::<DefaultEnvironment, _>(IdentityRemoved {
+				owner: caller,
+				identity: identity_no,
+			});
+
+			Ok(())
 		}
 
 		/// Update nickname of an identity.
@@ -332,6 +353,93 @@ mod address_book {
 				.call(&ink_e2e::alice(), call_add_same_identity_twice, 0, None)
 				.await
 				.is_err());
+
+			Ok(())
+		}
+
+		#[ink_e2e::test]
+		async fn remove_identity_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::new();
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			// Alice creates an address book
+			let create_address_book_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.create_address_book());
+			client
+				.call(&ink_e2e::alice(), create_address_book_call, 0, None)
+				.await
+				.expect("failed to create an address book");
+
+			// Bob creates his identity
+			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
+				.call(|identity| identity.create_identity());
+			client
+				.call(&ink_e2e::bob(), create_identity_call, 0, None)
+				.await
+				.expect("failed to create an identity");
+
+			// Now Alice can successfully add Bob's identity to the address book.
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			client
+				.call(&ink_e2e::alice(), add_identity_call, 0, None)
+				.await
+				.expect("Failed to add an identity into an address book");
+
+			// Check contract storage
+			let call_identities_of_alice =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.identities_of(ink_e2e::account_id(ink_e2e::AccountKeyring::Alice))
+				});
+
+			let identities = client
+				.call(&ink_e2e::alice(), call_identities_of_alice.clone(), 0, None)
+				.await
+				.expect("Failed to get identities of alice")
+				.return_value();
+
+			assert_eq!(identities, vec![(0, Some("bob".to_string()))]);
+
+			// Fails. Cannot remove an identity that is not part of the address book.
+
+			let remove_invalid_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.remove_identity(1));
+
+			assert!(client
+				.call(&ink_e2e::alice(), remove_invalid_identity_call, 0, None)
+				.await
+				.is_err());
+
+			// Success. Alice removes bob from her address book.
+			let remove_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.remove_identity(0));
+
+			client
+				.call(&ink_e2e::alice(), remove_identity_call, 0, None)
+				.await
+				.expect("Failed to remove an identity from an address book");
+
+			assert_eq!(
+				client
+					.call(&ink_e2e::alice(), call_identities_of_alice, 0, None)
+					.await
+					.expect("Failed to get identities of alice")
+					.return_value(),
+				vec![]
+			);
 
 			Ok(())
 		}
