@@ -44,7 +44,22 @@ impl AddressBookInfo {
 		// TODO:
 	}
 
-	pub fn update_nickname(identity_no: IdentityNo, new_nickname: Option<Nickname>) {
-		// TODO:
+	pub fn update_nickname(
+		&mut self,
+		identity_no: IdentityNo,
+		new_nickname: Option<Nickname>,
+	) -> Result<(), Error> {
+		if let Some(name) = new_nickname.clone() {
+			ensure!(name.len() <= NICKNAME_LENGTH_LIMIT as usize, Error::NickNameTooLong);
+		}
+
+		if let Some(index) =
+			self.identities.clone().into_iter().position(|record| record.1 == identity_no)
+		{
+			self.identities[index] = (new_nickname, identity_no);
+			Ok(())
+		} else {
+			Err(Error::IdentityNotAdded)
+		}
 	}
 }
