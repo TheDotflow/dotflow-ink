@@ -16,15 +16,17 @@ const NICKNAME_LENGTH_LIMIT: u8 = 16;
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum Error {
-	/// The user already has an address book
+	/// The user already has an address book.
 	AddressBookAlreadyCreated,
-	/// The user doesn't have an address book yet
+	/// The user doesn't have an address book yet.
 	AddressBookDoesntExist,
-	/// The given identity no is not valid
-	InvalidIdentityNo,
-	/// The given identity is already added
+	/// The given `IdentityNo` is not valid.
+	IdentityDoesntExist,
+	/// The given `IdentityNo` is not added yet.
+	IdentityNotAdded,
+	/// The given identity is already added.
 	IdentityAlreadyAdded,
-	/// The given nickname is too long
+	/// The given nickname is too long.
 	NickNameTooLong,
 }
 
@@ -54,25 +56,36 @@ mod address_book {
 
 	#[ink(event)]
 	pub struct AddressBookCreated {
+		/// The owner of the newly created address book.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
 	}
 
 	#[ink(event)]
 	pub struct AddressBookRemoved {
+		/// The owner of the removed address book.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
 	}
 
 	#[ink(event)]
-	pub struct IdentityContractSet {
-		pub(crate) address: AccountId,
+	pub struct IdentityAdded {
+		/// The owner of the address book.
+		#[ink(topic)]
+		pub(crate) owner: AccountId,
+		/// The identity added to the address book.
+		pub(crate) identity: IdentityNo,
 	}
 
 	#[ink(event)]
-	pub struct IdentityAdded {
+	pub struct NickNameUpdated {
+		/// The owner of the address book.
+		#[ink(topic)]
 		pub(crate) owner: AccountId,
-		pub(crate) identity: IdentityNo,
+		/// The identity that received a new nickname.
+		pub(crate) identity_no: IdentityNo,
+		/// The new nickname.
+		pub(crate) new_nickname: Option<Nickname>,
 	}
 
 	impl AddressBook {
@@ -83,18 +96,18 @@ mod address_book {
 			AddressBook { address_book_of: Default::default(), identity_contract }
 		}
 
-		/// Returns the address of the identity contract that is used by the
-		/// address book.
+		/// Returns the address of the identity contract.
 		#[ink(message)]
 		pub fn identity_contract(&self) -> AccountId {
 			self.identity_contract
 		}
 
-		/// Creates an address book for a user
+		/// Creates an address book for the caller.
 		#[ink(message)]
 		pub fn create_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
 
+			// Only one address book per user.
 			ensure!(self.address_book_of.get(caller).is_none(), Error::AddressBookAlreadyCreated);
 			self.address_book_of
 				.insert(caller, &AddressBookInfo { identities: Default::default() });
@@ -104,7 +117,7 @@ mod address_book {
 			Ok(())
 		}
 
-		/// Removes the address book of a user
+		/// Removes the address book of the caller.
 		#[ink(message)]
 		pub fn remove_address_book(&mut self) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -118,7 +131,7 @@ mod address_book {
 			Ok(())
 		}
 
-		/// Adds an identity to the user's address book
+		/// Adds an identity to the user's address book.
 		#[ink(message)]
 		pub fn add_identity(
 			&mut self,
@@ -131,6 +144,8 @@ mod address_book {
 				.get(caller)
 				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
 
+			// Ensure that the provided `identity_no` is existent by calling the
+			// identity contract.
 			let identity = build_call::<DefaultEnvironment>()
 				.call(self.identity_contract)
 				.gas_limit(0)
@@ -141,7 +156,7 @@ mod address_book {
 				.returns::<Option<()>>()
 				.invoke();
 
-			ensure!(identity.is_some(), Error::InvalidIdentityNo);
+			ensure!(identity.is_some(), Error::IdentityDoesntExist);
 
 			address_book.add_identity(identity_no, nickname)?;
 			self.address_book_of.insert(caller, &address_book);
@@ -154,26 +169,41 @@ mod address_book {
 			Ok(())
 		}
 
-		/// Removes an identity from the user's address book
+		/// Removes an identity from the user's address book.
 		#[ink(message)]
 		pub fn remove_identity(&mut self, identity_no: IdentityNo) {
 			// TODO:
 		}
 
-		/// Update nickname of an identity
+		/// Update nickname of an identity.
 		#[ink(message)]
-		pub fn update_nickname(&mut self, identity_no: IdentityNo, new_nickname: Option<Nickname>) {
-			// TODO:
+		pub fn update_nickname(
+			&mut self,
+			identity_no: IdentityNo,
+			new_nickname: Option<Nickname>,
+		) -> Result<(), Error> {
+			let caller = self.env().caller();
+			let mut address_book = self
+				.address_book_of
+				.get(caller)
+				.map_or(Err(Error::AddressBookDoesntExist), Ok)?;
+
+			address_book.update_nickname(identity_no, new_nickname.clone())?;
+			self.address_book_of.insert(caller, &address_book);
+
+			ink::env::emit_event::<DefaultEnvironment, _>(NickNameUpdated {
+				owner: caller,
+				identity_no,
+				new_nickname,
+			});
+
+			Ok(())
 		}
 
-		/// Returns the identities stored in the address book of a user
+		/// Returns the identities stored in the address book of a user.
 		#[ink(message)]
 		pub fn identities_of(&self, account: AccountId) -> Vec<IdentityRecord> {
-			if let Some(address_book) = self.address_book_of.get(account) {
-				address_book.identities
-			} else {
-				Vec::default()
-			}
+			self.address_book_of.get(account).unwrap_or_default().identities
 		}
 	}
 
@@ -273,13 +303,119 @@ mod address_book {
 				.await
 				.is_err());
 
-			// Now alice can successfully add Bob's identity to the address book.
+			// Now Alice can successfully add Bob's identity to the address book.
 			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
 			client
 				.call(&ink_e2e::alice(), add_identity_call, 0, None)
 				.await
 				.expect("Failed to add an identity into an address book");
+
+			// Check contract storage
+			let call_identities_of_alice =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.identities_of(ink_e2e::account_id(ink_e2e::AccountKeyring::Alice))
+				});
+
+			let identities = client
+				.call(&ink_e2e::alice(), call_identities_of_alice, 0, None)
+				.await
+				.expect("Failed to get identities of alice")
+				.return_value();
+
+			assert_eq!(identities, vec![(0, Some("bob".to_string()))]);
+
+			// Error: Cannot add the same identity twice.
+			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			assert!(client
+				.call(&ink_e2e::alice(), call_add_same_identity_twice, 0, None)
+				.await
+				.is_err());
+
+			Ok(())
+		}
+
+		#[ink_e2e::test]
+		async fn update_nickname_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+			let identity_constructor = IdentityRef::new();
+
+			let identity_acc_id = client
+				.instantiate("identity", &ink_e2e::alice(), identity_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			let book_constructor = AddressBookRef::new(identity_acc_id);
+
+			let book_acc_id = client
+				.instantiate("address-book", &ink_e2e::alice(), book_constructor, 0, None)
+				.await
+				.expect("instantiate failed")
+				.account_id;
+
+			// Alice creates an address book
+			let create_address_book_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.create_address_book());
+			client
+				.call(&ink_e2e::alice(), create_address_book_call, 0, None)
+				.await
+				.expect("failed to create an address book");
+
+			// Bob creates his identity
+			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
+				.call(|identity| identity.create_identity());
+			client
+				.call(&ink_e2e::bob(), create_identity_call, 0, None)
+				.await
+				.expect("failed to create an identity");
+
+			// Alice adds Bob's identity to the address book.
+			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
+			client
+				.call(&ink_e2e::alice(), add_identity_call, 0, None)
+				.await
+				.expect("Failed to add an identity into an address book");
+
+			// Error: Cannot update the nickname of an identity not added to the address book
+			let update_nick_name_invalid_identity = build_message::<AddressBookRef>(book_acc_id)
+				.call(|address_book| {
+					address_book.update_nickname(1, Some("new_nickname".to_string()))
+				});
+
+			assert!(client
+				.call(&ink_e2e::alice(), update_nick_name_invalid_identity, 0, None)
+				.await
+				.is_err());
+
+			// Error: Length of the new nickname is too long
+			let update_nick_name_too_long =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.update_nickname(
+						0,
+						Some(
+							String::from_utf8(vec![b'a'; (NICKNAME_LENGTH_LIMIT + 1) as usize])
+								.unwrap(),
+						),
+					)
+				});
+
+			assert!(client
+				.call(&ink_e2e::alice(), update_nick_name_too_long, 0, None)
+				.await
+				.is_err());
+
+			// Success: update nickname
+			let call_update_nickname =
+				build_message::<AddressBookRef>(book_acc_id).call(|address_book| {
+					address_book.update_nickname(0, Some("new_nickname".to_string()))
+				});
+
+			client
+				.call(&ink_e2e::alice(), call_update_nickname, 0, None)
+				.await
+				.expect("Failed to update the nickname");
 
 			// Check contract storage
 			let call_identities_of_alice =
