@@ -27,7 +27,7 @@ impl AddressBookInfo {
 		nickname: Option<Nickname>,
 	) -> Result<(), Error> {
 		ensure!(
-			!self.identities.clone().into_iter().any(|address| address.1 == identity_no),
+			!self.identities.iter().any(|identity| identity.1 == identity_no),
 			Error::IdentityAlreadyAdded
 		);
 
@@ -44,7 +44,23 @@ impl AddressBookInfo {
 		// TODO:
 	}
 
-	pub fn update_nickname(identity_no: IdentityNo, new_nickname: Option<Nickname>) {
-		// TODO:
+	pub fn update_nickname(
+		&mut self,
+		identity_no: IdentityNo,
+		new_nickname: Option<Nickname>,
+	) -> Result<(), Error> {
+		if let Some(name) = new_nickname.clone() {
+			ensure!(name.len() <= NICKNAME_LENGTH_LIMIT as usize, Error::NickNameTooLong);
+		}
+
+		let index = self
+			.identities
+			.iter()
+			.position(|identity| identity.1 == identity_no)
+			.map_or(Err(Error::IdentityNotAdded), Ok)?;
+
+		self.identities[index] = (new_nickname, identity_no);
+
+		Ok(())
 	}
 }
