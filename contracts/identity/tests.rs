@@ -1,5 +1,6 @@
-/// Ink! integration tests convering the identity contract functionality.
+//! Ink! integration tests convering the identity contract functionality.
 use crate::{identity::*, types::*, *};
+use common::types::*;
 
 use ink::env::{
 	test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
