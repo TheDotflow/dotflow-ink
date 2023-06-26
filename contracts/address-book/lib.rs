@@ -296,7 +296,13 @@ mod address_book {
 
 			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
-			assert!(client.call(&ink_e2e::alice(), add_identity_call, 0, None).await.is_err());
+			assert_eq!(
+				client
+					.call_dry_run(&ink_e2e::alice(), &add_identity_call, 0, None)
+					.await
+					.return_value(),
+				Err(Error::IdentityDoesntExist)
+			);
 
 			// Bob creates his identity
 			let create_identity_call = build_message::<IdentityRef>(identity_acc_id)
@@ -319,14 +325,20 @@ mod address_book {
 				});
 
 			// The nickname of the identity has to be less or equal to the `NICKNAME_LENGTH_LIMIT`.
-			assert!(client
-				.call(&ink_e2e::alice(), add_identity_with_too_long_nickname_call, 0, None)
-				.await
-				.is_err());
+			assert_eq!(
+				client
+					.call_dry_run(
+						&ink_e2e::alice(),
+						&add_identity_with_too_long_nickname_call,
+						0,
+						None
+					)
+					.await
+					.return_value(),
+				Err(Error::NickNameTooLong)
+			);
 
 			// Now Alice can successfully add Bob's identity to the address book.
-			let add_identity_call = build_message::<AddressBookRef>(book_acc_id)
-				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
 			client
 				.call(&ink_e2e::alice(), add_identity_call, 0, None)
 				.await
@@ -349,10 +361,13 @@ mod address_book {
 			// Error: Cannot add the same identity twice.
 			let call_add_same_identity_twice = build_message::<AddressBookRef>(book_acc_id)
 				.call(|address_book| address_book.add_identity(0, Some("bob".to_string())));
-			assert!(client
-				.call(&ink_e2e::alice(), call_add_same_identity_twice, 0, None)
-				.await
-				.is_err());
+			assert_eq!(
+				client
+					.call_dry_run(&ink_e2e::alice(), &call_add_same_identity_twice, 0, None)
+					.await
+					.return_value(),
+				Err(Error::IdentityAlreadyAdded)
+			);
 
 			Ok(())
 		}
@@ -492,10 +507,13 @@ mod address_book {
 					address_book.update_nickname(1, Some("new_nickname".to_string()))
 				});
 
-			assert!(client
-				.call(&ink_e2e::alice(), update_nick_name_invalid_identity, 0, None)
-				.await
-				.is_err());
+			assert_eq!(
+				client
+					.call_dry_run(&ink_e2e::alice(), &update_nick_name_invalid_identity, 0, None)
+					.await
+					.return_value(),
+				Err(Error::IdentityNotAdded)
+			);
 
 			// Error: Length of the new nickname is too long
 			let update_nick_name_too_long =
@@ -509,10 +527,13 @@ mod address_book {
 					)
 				});
 
-			assert!(client
-				.call(&ink_e2e::alice(), update_nick_name_too_long, 0, None)
-				.await
-				.is_err());
+			assert_eq!(
+				client
+					.call_dry_run(&ink_e2e::alice(), &update_nick_name_too_long, 0, None)
+					.await
+					.return_value(),
+				Err(Error::NickNameTooLong)
+			);
 
 			// Success: update nickname
 			let call_update_nickname =
