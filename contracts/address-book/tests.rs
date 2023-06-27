@@ -47,6 +47,18 @@ fn remove_address_book_works() {
 	assert_eq!(book.remove_address_book(), Ok(()));
 }
 
+#[ink::test]
+fn has_address_book_works() {
+	let identity_contract = get_identity_contract_address();
+
+	let mut book = AddressBook::new(identity_contract);
+
+	assert_eq!(book.has_address_book(), false);
+
+	assert_eq!(book.create_address_book(), Ok(()));
+	assert_eq!(book.has_address_book(), true);
+}
+
 fn get_default_accounts() -> DefaultAccounts<DefaultEnvironment> {
 	default_accounts::<DefaultEnvironment>()
 }
