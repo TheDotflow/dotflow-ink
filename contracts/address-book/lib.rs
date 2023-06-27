@@ -226,6 +226,13 @@ mod address_book {
 		pub fn identities_of(&self, account: AccountId) -> Vec<IdentityRecord> {
 			self.address_book_of.get(account).unwrap_or_default().identities
 		}
+
+		/// Returns whether the user has created an address book or not
+		#[ink(message)]
+		pub fn has_address_book(&self) -> bool {
+			let caller = self.env().caller();
+			self.address_book_of.get(caller).is_some()
+		}
 	}
 
 	#[cfg(all(test, feature = "e2e-tests"))]
