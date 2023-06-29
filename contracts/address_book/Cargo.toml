@@ -1,5 +1,5 @@
 [package]
-name = "address-book"
+name = "address_book"
 version = "0.1.0"
 authors = ["Master Union <masteruniondoo@gmail.com>"]
 edition = "2021"
