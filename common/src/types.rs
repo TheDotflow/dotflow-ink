@@ -27,4 +27,7 @@ pub struct NetworkInfo {
 	/// This is used on the frontend to ensure the user does not add an address
 	/// that is not valid on the network he specified.
 	pub ss58_prefix: Ss58Prefix,
+	/// We need to know the rpc url of each network otherwise we won't know how
+	/// to communicate with it.
+	pub rpc_url: String,
 }
