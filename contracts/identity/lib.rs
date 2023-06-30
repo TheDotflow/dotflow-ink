@@ -19,7 +19,7 @@ const ADDRESS_SIZE_LIMIT: usize = 128;
 const NETWORK_NAME_LIMIT: usize = 16;
 
 /// Limit the rpc url length of a network.
-const NETWORK_RPC_URL_LIMIT: usize = 32;
+const NETWORK_RPC_URL_LIMIT: usize = 64;
 
 /// All the possible errors that may occur when interacting with the identity
 /// contract.
