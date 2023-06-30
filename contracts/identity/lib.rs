@@ -15,9 +15,6 @@ pub use self::identity::{Identity, IdentityRef};
 /// Encrypted addresses should never exceed this size limit.
 const ADDRESS_SIZE_LIMIT: usize = 128;
 
-/// Limit the name length of a network.
-const NETWORK_NAME_LIMIT: usize = 16;
-
 /// Limit the rpc url length of a network.
 const NETWORK_RPC_URL_LIMIT: usize = 64;
 
@@ -40,7 +37,7 @@ pub enum Error {
 mod identity {
 	use super::*;
 	use crate::types::*;
-	use common::types::{NetworkInfo, Ss58Prefix, *};
+	use common::types::{NetworkInfo, *};
 	use ink::storage::Mapping;
 
 	/// Storage
@@ -136,12 +133,10 @@ mod identity {
 		/// The `NetworkId` that is associated with the newly added network.
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
-		/// The name of the network name that got added.
-		pub(crate) name: String,
-		/// The `Ss58Prefix`  of the network that got added.
-		pub(crate) ss58_prefix: Ss58Prefix,
 		/// The rpc url of the network that got added.
 		pub(crate) rpc_url: String,
+		/// The address type used on the network.
+		pub(crate) account_type: AccountType,
 	}
 
 	#[ink(event)]
@@ -149,12 +144,10 @@ mod identity {
 		/// The `NetworkId` that is associated with the updated network.
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
-		/// The name of the updated network.
-		pub(crate) name: String,
-		/// The `Ss58Prefix` of the updated network.
-		pub(crate) ss58_prefix: Ss58Prefix,
 		/// The rpc url of the updated network.
 		pub(crate) rpc_url: String,
+		/// The address type used on the updated network.
+		pub(crate) account_type: AccountType,
 	}
 
 	#[ink(event)]
@@ -203,7 +196,6 @@ mod identity {
 			// Iterate over all the networks provided and make sure that no
 			// fields are exceeding the length limits.
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
-				assert!(network.name.len() <= NETWORK_NAME_LIMIT, "Network name is too long");
 				assert!(
 					network.rpc_url.len() <= NETWORK_RPC_URL_LIMIT,
 					"Network rpc url is too long"
@@ -388,8 +380,7 @@ mod identity {
 			// Only the contract owner can add a network
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			// Ensure that no fields are exceeding the length limits.
-			ensure!(info.name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
+			// Ensure that the rpc url is not exceeding the length limit.
 			ensure!(info.rpc_url.len() <= NETWORK_RPC_URL_LIMIT, Error::NetworkRpcUrlTooLong);
 
 			let network_id = self.network_id_count;
@@ -397,9 +388,9 @@ mod identity {
 
 			self.network_id_count = self.network_id_count.saturating_add(1);
 
-			let NetworkInfo { name, ss58_prefix, rpc_url } = info;
+			let NetworkInfo { rpc_url, account_type } = info;
 
-			self.env().emit_event(NetworkAdded { network_id, name, ss58_prefix, rpc_url });
+			self.env().emit_event(NetworkAdded { network_id, rpc_url, account_type });
 
 			Ok(network_id)
 		}
@@ -408,9 +399,8 @@ mod identity {
 		pub fn update_network(
 			&mut self,
 			network_id: NetworkId,
-			new_prefix: Option<Ss58Prefix>,
-			new_name: Option<String>,
 			new_rpc_url: Option<String>,
+			new_address_type: Option<AccountType>,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
@@ -421,20 +411,14 @@ mod identity {
 			let mut info =
 				self.network_info_of.get(network_id).map_or(Err(Error::InvalidNetwork), Ok)?;
 
-			// Ensure that the name of the network doesn't exceed length limit.
-			if let Some(name) = new_name {
-				ensure!(name.len() <= NETWORK_NAME_LIMIT, Error::NetworkNameTooLong);
-				info.name = name;
-			}
-
 			// Ensure that the rpc url of the network doesn't exceed length limit.
 			if let Some(rpc_url) = new_rpc_url {
 				ensure!(rpc_url.len() <= NETWORK_RPC_URL_LIMIT, Error::NetworkRpcUrlTooLong);
 				info.rpc_url = rpc_url;
 			}
 
-			if let Some(prefix) = new_prefix {
-				info.ss58_prefix = prefix;
+			if let Some(account_type) = new_address_type {
+				info.account_type = account_type;
 			}
 
 			// Update storage items
@@ -442,9 +426,8 @@ mod identity {
 
 			self.env().emit_event(NetworkUpdated {
 				network_id,
-				name: info.name,
-				ss58_prefix: info.ss58_prefix,
 				rpc_url: info.rpc_url,
+				account_type: info.account_type,
 			});
 
 			Ok(())
