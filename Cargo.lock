@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "address-book"
+name = "address_book"
 version = "0.1.0"
 dependencies = [
  "common",
