@@ -30,7 +30,14 @@ pub enum AccountType {
 pub struct NetworkInfo {
 	/// We need to know the rpc url of each network otherwise we won't know how
 	/// to communicate with it.
-	pub rpc_url: String,
+	pub rpc_urls: Vec<String>,
 	/// We need to know the address type when making XCM transfers.
 	pub account_type: AccountType,
+}
+
+impl NetworkInfo {
+	// Makes sure none of the network's urls exceed the size limit.
+	pub fn ensure_rpc_url_size_limit(&self, limit: usize) -> bool {
+		self.rpc_urls.iter().all(|url| url.len() <= limit)
+	}
 }

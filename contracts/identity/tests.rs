@@ -37,8 +37,9 @@ fn create_identity_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::IdentityCreated(IdentityCreated { owner, identity_no }) =
-        decoded_event else { panic!("IdentityCreated event should be emitted") };
+	let Event::IdentityCreated(IdentityCreated { owner, identity_no }) = decoded_event else {
+		panic!("IdentityCreated event should be emitted")
+	};
 
 	assert_eq!(owner, alice);
 	assert_eq!(identity_no, 0);
@@ -79,13 +80,13 @@ fn add_address_to_identity_works() {
 
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://polkadot.com".to_string(),
+			rpc_urls: vec!["ws://polkadot.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://moonbeam.com".to_string(),
+			rpc_urls: vec!["ws://moonbeam.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
@@ -107,8 +108,9 @@ fn add_address_to_identity_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::AddressAdded(AddressAdded { identity_no, network, address }) =
-        decoded_event else { panic!("AddressAdded event should be emitted") };
+	let Event::AddressAdded(AddressAdded { identity_no, network, address }) = decoded_event else {
+		panic!("AddressAdded event should be emitted")
+	};
 
 	assert_eq!(identity_no, 0);
 	assert_eq!(network, polkadot);
@@ -134,13 +136,13 @@ fn update_address_works() {
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://polkadot.com".to_string(),
+			rpc_urls: vec!["ws://polkadot.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://moonbeam.com".to_string(),
+			rpc_urls: vec!["ws://moonbeam.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
@@ -178,7 +180,10 @@ fn update_address_works() {
 		.expect("Failed to decode event");
 
 	let Event::AddressUpdated(AddressUpdated { identity_no, network, updated_address }) =
-        decoded_event else { panic!("AddressUpdated event should be emitted") };
+		decoded_event
+	else {
+		panic!("AddressUpdated event should be emitted")
+	};
 
 	assert_eq!(identity_no, 0);
 	assert_eq!(network, polkadot);
@@ -202,7 +207,7 @@ fn remove_address_works() {
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://polkadot.com".to_string(),
+			rpc_urls: vec!["ws://polkadot.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
@@ -235,8 +240,9 @@ fn remove_address_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::AddressRemoved(AddressRemoved { identity_no, network }) =
-        decoded_event else { panic!("AddressRemoved event should be emitted") };
+	let Event::AddressRemoved(AddressRemoved { identity_no, network }) = decoded_event else {
+		panic!("AddressRemoved event should be emitted")
+	};
 
 	assert_eq!(identity_no, 0);
 	assert_eq!(network, polkadot);
@@ -258,7 +264,7 @@ fn remove_identity_works() {
 
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://polkadot.com".to_string(),
+			rpc_urls: vec!["ws://polkadot.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
@@ -291,8 +297,9 @@ fn remove_identity_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::IdentityRemoved(IdentityRemoved { identity_no }) =
-        decoded_event else { panic!("IdentityRemoved event should be emitted") };
+	let Event::IdentityRemoved(IdentityRemoved { identity_no }) = decoded_event else {
+		panic!("IdentityRemoved event should be emitted")
+	};
 
 	assert_eq!(identity_no, 0);
 
@@ -309,7 +316,7 @@ fn address_size_limit_works() {
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
 		.add_network(NetworkInfo {
-			rpc_url: "ws://polkadot.com".to_string(),
+			rpc_urls: vec!["ws://polkadot.com".to_string()],
 			account_type: AccountId32,
 		})
 		.is_ok());
@@ -329,12 +336,12 @@ fn add_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let polkadot_rpc_url = "ws://polkadot.com".to_string();
-	let kusama_rpc_url = "ws://polkadot.com".to_string();
+	let polkadot_rpc_urls = vec!["ws://polkadot.com".to_string()];
+	let kusama_rpc_urls = vec!["ws://polkadot.com".to_string()];
 
 	// Adding a network successful
 	assert!(identity
-		.add_network(NetworkInfo { rpc_url: polkadot_rpc_url.clone(), account_type: AccountId32 })
+		.add_network(NetworkInfo { rpc_urls: polkadot_rpc_urls.clone(), account_type: AccountId32 })
 		.is_ok());
 
 	// Check emitted events
@@ -343,13 +350,16 @@ fn add_network_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::NetworkAdded(NetworkAdded { network_id, rpc_url, account_type }) = decoded_event else { panic!("NetworkAdded event should be emitted") };
+	let Event::NetworkAdded(NetworkAdded { network_id, rpc_urls, account_type }) = decoded_event
+	else {
+		panic!("NetworkAdded event should be emitted")
+	};
 
 	assert_eq!(network_id, 0);
-	assert_eq!(rpc_url, polkadot_rpc_url);
+	assert_eq!(rpc_urls, polkadot_rpc_urls);
 	assert_eq!(account_type, AccountId32);
 
-	let info = NetworkInfo { rpc_url: polkadot_rpc_url.clone(), account_type: AccountId32 };
+	let info = NetworkInfo { rpc_urls: polkadot_rpc_urls.clone(), account_type: AccountId32 };
 
 	// Check storage items updated
 	assert_eq!(identity.network_info_of.get(network_id), Some(info.clone()));
@@ -359,16 +369,17 @@ fn add_network_works() {
 	// Only the contract creator can add a new network
 	set_caller::<DefaultEnvironment>(bob);
 	assert_eq!(
-		identity.add_network(NetworkInfo { rpc_url: kusama_rpc_url, account_type: AccountId32 }),
+		identity.add_network(NetworkInfo { rpc_urls: kusama_rpc_urls, account_type: AccountId32 }),
 		Err(Error::NotAllowed)
 	);
 
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Rpc url of the network should not be too long
-	let long_rpc_url: String = String::from_utf8(vec![b'a'; NETWORK_RPC_URL_LIMIT + 1]).unwrap();
+	let long_rpc_urls: Vec<String> =
+		vec![String::from_utf8(vec![b'a'; NETWORK_RPC_URL_LIMIT + 1]).unwrap()];
 	assert_eq!(
-		identity.add_network(NetworkInfo { rpc_url: long_rpc_url, account_type: AccountId32 }),
+		identity.add_network(NetworkInfo { rpc_urls: long_rpc_urls, account_type: AccountId32 }),
 		Err(Error::NetworkRpcUrlTooLong)
 	);
 }
@@ -376,15 +387,17 @@ fn add_network_works() {
 #[ink::test]
 fn remove_network_works() {
 	let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
-	let polkadot_rpc_url = "ws://polkadot.com".to_string();
+	let polkadot_rpc_urls = vec!["ws://polkadot.com".to_string()];
 	let account_type = AccountId32;
 
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(network_id) = identity.add_network(NetworkInfo{rpc_url: polkadot_rpc_url, account_type}) else {
-        panic!("Failed to add network")
-    };
+	let Ok(network_id) =
+		identity.add_network(NetworkInfo { rpc_urls: polkadot_rpc_urls, account_type })
+	else {
+		panic!("Failed to add network")
+	};
 
 	// Remove network: network doesn't exist
 	assert_eq!(identity.remove_network(network_id + 1), Err(Error::InvalidNetwork));
@@ -406,7 +419,10 @@ fn remove_network_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::NetworkRemoved(NetworkRemoved { network_id: removed_network_id }) = decoded_event else { panic!("NetworkRemoved event should be emitted") };
+	let Event::NetworkRemoved(NetworkRemoved { network_id: removed_network_id }) = decoded_event
+	else {
+		panic!("NetworkRemoved event should be emitted")
+	};
 
 	assert_eq!(removed_network_id, network_id);
 }
@@ -423,11 +439,16 @@ fn update_network_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{ rpc_url:  polkadot_rpc, account_type: account_type.clone() }) else {
-        panic!("Failed to add network")
-    };
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo {
+		rpc_urls: vec![polkadot_rpc.clone()],
+		account_type: account_type.clone(),
+	}) else {
+		panic!("Failed to add network")
+	};
 
-	assert!(identity.add_network(NetworkInfo { rpc_url: kusama_rpc, account_type }).is_ok());
+	assert!(identity
+		.add_network(NetworkInfo { rpc_urls: vec![kusama_rpc], account_type })
+		.is_ok());
 
 	// Only the contract owner can update a network
 	set_caller::<DefaultEnvironment>(bob);
@@ -463,10 +484,17 @@ fn update_network_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::NetworkUpdated(NetworkUpdated { network_id: network_updated, rpc_url: updated_rpc, account_type: updated_account_type }) = decoded_event else { panic!("NetworkUpdated event should be emitted") };
+	let Event::NetworkUpdated(NetworkUpdated {
+		network_id: network_updated,
+		rpc_urls: updated_rpc,
+		account_type: updated_account_type,
+	}) = decoded_event
+	else {
+		panic!("NetworkUpdated event should be emitted")
+	};
 
 	assert_eq!(network_updated, polkadot_id);
-	assert_eq!(updated_rpc, new_rpc_url);
+	assert_eq!(updated_rpc, vec![polkadot_rpc, new_rpc_url]);
 	assert_eq!(updated_account_type, AccountKey20);
 }
 
@@ -491,7 +519,10 @@ fn set_recovery_account_works() {
 		.expect("Failed to decode event");
 
 	let Event::RecoveryAccountSet(RecoveryAccountSet { identity_no, recovery_account }) =
-        decoded_event else { panic!("RecoveryAccountSet event should be emitted") };
+		decoded_event
+	else {
+		panic!("RecoveryAccountSet event should be emitted")
+	};
 
 	assert_eq!(identity_no, 0);
 	assert_eq!(recovery_account, bob);
@@ -506,9 +537,12 @@ fn transfer_ownership_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{rpc_url: "ws://polkadot.com".to_string(), account_type: AccountId32}) else {
-        panic!("Failed to add network")
-    };
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo {
+		rpc_urls: vec!["ws://polkadot.com".to_string()],
+		account_type: AccountId32,
+	}) else {
+		panic!("Failed to add network")
+	};
 
 	assert!(identity.create_identity().is_ok());
 
@@ -586,38 +620,38 @@ fn init_with_networks_works() {
 	let astar_rpc = "ws://astar.com".to_string();
 
 	let networks = vec![
-		NetworkInfo { rpc_url: polkadot_rpc.clone(), account_type: AccountId32 },
-		NetworkInfo { rpc_url: kusama_rpc.clone(), account_type: AccountId32 },
-		NetworkInfo { rpc_url: moonbeam_rpc.clone(), account_type: AccountKey20 },
-		NetworkInfo { rpc_url: astar_rpc.clone(), account_type: AccountId32 },
+		NetworkInfo { rpc_urls: vec![polkadot_rpc.clone()], account_type: AccountId32 },
+		NetworkInfo { rpc_urls: vec![kusama_rpc.clone()], account_type: AccountId32 },
+		NetworkInfo { rpc_urls: vec![moonbeam_rpc.clone()], account_type: AccountKey20 },
+		NetworkInfo { rpc_urls: vec![astar_rpc.clone()], account_type: AccountId32 },
 	];
 	let identity = Identity::init_with_networks(networks);
 
 	assert_eq!(
 		identity.network_info_of(0),
-		Some(NetworkInfo { rpc_url: polkadot_rpc.clone(), account_type: AccountId32 })
+		Some(NetworkInfo { rpc_urls: vec![polkadot_rpc.clone()], account_type: AccountId32 })
 	);
 	assert_eq!(
 		identity.network_info_of(1),
-		Some(NetworkInfo { rpc_url: kusama_rpc.clone(), account_type: AccountId32 })
+		Some(NetworkInfo { rpc_urls: vec![kusama_rpc.clone()], account_type: AccountId32 })
 	);
 	assert_eq!(
 		identity.network_info_of(2),
-		Some(NetworkInfo { rpc_url: moonbeam_rpc.clone(), account_type: AccountKey20 })
+		Some(NetworkInfo { rpc_urls: vec![moonbeam_rpc.clone()], account_type: AccountKey20 })
 	);
 	assert_eq!(
 		identity.network_info_of(3),
-		Some(NetworkInfo { rpc_url: astar_rpc.clone(), account_type: AccountId32 })
+		Some(NetworkInfo { rpc_urls: vec![astar_rpc.clone()], account_type: AccountId32 })
 	);
 
 	assert_eq!(identity.network_id_count, 4);
 	assert_eq!(
 		identity.available_networks(),
 		vec![
-			(0, NetworkInfo { rpc_url: polkadot_rpc, account_type: AccountId32 }),
-			(1, NetworkInfo { rpc_url: kusama_rpc, account_type: AccountId32 }),
-			(2, NetworkInfo { rpc_url: moonbeam_rpc, account_type: AccountKey20 }),
-			(3, NetworkInfo { rpc_url: astar_rpc, account_type: AccountId32 })
+			(0, NetworkInfo { rpc_urls: vec![polkadot_rpc], account_type: AccountId32 }),
+			(1, NetworkInfo { rpc_urls: vec![kusama_rpc], account_type: AccountId32 }),
+			(2, NetworkInfo { rpc_urls: vec![moonbeam_rpc], account_type: AccountKey20 }),
+			(3, NetworkInfo { rpc_urls: vec![astar_rpc], account_type: AccountId32 })
 		]
 	);
 }
@@ -627,7 +661,7 @@ fn init_with_networks_works() {
 fn init_with_networks_fail() {
 	let rpc_url_long = String::from_utf8(vec![b'a'; NETWORK_RPC_URL_LIMIT + 1]).unwrap();
 	Identity::init_with_networks(vec![NetworkInfo {
-		rpc_url: rpc_url_long,
+		rpc_urls: vec![rpc_url_long],
 		account_type: AccountId32,
 	}]);
 }
@@ -639,9 +673,12 @@ fn getting_transaction_destination_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_network(NetworkInfo{rpc_url: "ws://polkadot.com".to_string(), account_type: AccountId32}) else {
-        panic!("Failed to add network")
-    };
+	let Ok(polkadot_id) = identity.add_network(NetworkInfo {
+		rpc_urls: vec!["ws://polkadot.com".to_string()],
+		account_type: AccountId32,
+	}) else {
+		panic!("Failed to add network")
+	};
 
 	assert!(identity.create_identity().is_ok());
 
@@ -666,9 +703,12 @@ fn getting_transaction_destination_works() {
 	assert_eq!(identity.transaction_destination(42, polkadot_id), Err(Error::IdentityDoesntExist));
 
 	// Fails because alice does not have an address on the Moonbeam network.
-	let Ok(moonbeam_id) = identity.add_network(NetworkInfo{rpc_url: "ws://moonbeam.com".to_string(), account_type: AccountId32}) else {
-        panic!("Failed to add network")
-    };
+	let Ok(moonbeam_id) = identity.add_network(NetworkInfo {
+		rpc_urls: vec!["ws://moonbeam.com".to_string()],
+		account_type: AccountId32,
+	}) else {
+		panic!("Failed to add network")
+	};
 
 	assert_eq!(
 		identity.transaction_destination(identity_no, moonbeam_id),

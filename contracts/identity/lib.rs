@@ -134,7 +134,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		/// The rpc url of the network that got added.
-		pub(crate) rpc_url: String,
+		pub(crate) rpc_urls: Vec<String>,
 		/// The address type used on the network.
 		pub(crate) account_type: AccountType,
 	}
@@ -145,7 +145,7 @@ mod identity {
 		#[ink(topic)]
 		pub(crate) network_id: NetworkId,
 		/// The rpc url of the updated network.
-		pub(crate) rpc_url: String,
+		pub(crate) rpc_urls: Vec<String>,
 		/// The address type used on the updated network.
 		pub(crate) account_type: AccountType,
 	}
@@ -197,7 +197,7 @@ mod identity {
 			// fields are exceeding the length limits.
 			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
 				assert!(
-					network.rpc_url.len() <= NETWORK_RPC_URL_LIMIT,
+					network.ensure_rpc_url_size_limit(NETWORK_RPC_URL_LIMIT),
 					"Network rpc url is too long"
 				);
 				let network_id = network_id as NetworkId;
@@ -381,16 +381,19 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the rpc url is not exceeding the length limit.
-			ensure!(info.rpc_url.len() <= NETWORK_RPC_URL_LIMIT, Error::NetworkRpcUrlTooLong);
+			ensure!(
+				info.ensure_rpc_url_size_limit(NETWORK_RPC_URL_LIMIT),
+				Error::NetworkRpcUrlTooLong
+			);
 
 			let network_id = self.network_id_count;
 			self.network_info_of.insert(network_id, &info);
 
 			self.network_id_count = self.network_id_count.saturating_add(1);
 
-			let NetworkInfo { rpc_url, account_type } = info;
+			let NetworkInfo { rpc_urls, account_type } = info;
 
-			self.env().emit_event(NetworkAdded { network_id, rpc_url, account_type });
+			self.env().emit_event(NetworkAdded { network_id, rpc_urls, account_type });
 
 			Ok(network_id)
 		}
@@ -414,7 +417,7 @@ mod identity {
 			// Ensure that the rpc url of the network doesn't exceed length limit.
 			if let Some(rpc_url) = new_rpc_url {
 				ensure!(rpc_url.len() <= NETWORK_RPC_URL_LIMIT, Error::NetworkRpcUrlTooLong);
-				info.rpc_url = rpc_url;
+				info.rpc_urls.push(rpc_url);
 			}
 
 			if let Some(account_type) = new_address_type {
@@ -426,7 +429,7 @@ mod identity {
 
 			self.env().emit_event(NetworkUpdated {
 				network_id,
-				rpc_url: info.rpc_url,
+				rpc_urls: info.rpc_urls,
 				account_type: info.account_type,
 			});
 
@@ -480,7 +483,9 @@ mod identity {
 			let caller = self.env().caller();
 
 			let is_recovery_account = self.recovery_account_of.get(identity_no) == Some(caller);
-			let Some(identity_owner) = self.owner_of(identity_no) else { return Err(Error::NotAllowed) };
+			let Some(identity_owner) = self.owner_of(identity_no) else {
+				return Err(Error::NotAllowed)
+			};
 
 			ensure!(identity_owner == caller || is_recovery_account, Error::NotAllowed);
 			// The new owner cannot already have an identity since we allow only
