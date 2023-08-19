@@ -2,11 +2,13 @@
 use crate::{address_book::*, types::*, *};
 use ink::{
 	env::{
-		test::{default_accounts, DefaultAccounts},
+		test::{default_accounts, recorded_events, DefaultAccounts},
 		DefaultEnvironment,
 	},
 	primitives::AccountId,
 };
+
+type Event = <AddressBook as ::ink::reflect::ContractEventBase>::Type;
 
 #[ink::test]
 fn constructor_works() {
@@ -34,17 +36,39 @@ fn create_address_book_works() {
 		Some(AddressBookInfo { identities: Vec::default() })
 	);
 
+	assert_eq!(recorded_events().count(), 1);
+	let last_event = recorded_events().last().unwrap();
+	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+		.expect("Failed to decode event");
+
+	let Event::AddressBookCreated(AddressBookCreated { owner }) =
+        decoded_event else { panic!("AddressBookCreated event should be emitted") };
+
+	assert_eq!(owner, alice);
+
 	assert_eq!(book.create_address_book(), Err(Error::AddressBookAlreadyCreated));
 }
 
 #[ink::test]
 fn remove_address_book_works() {
 	let identity_contract = get_identity_contract_address();
+
+	let DefaultAccounts::<DefaultEnvironment> { alice, .. } = get_default_accounts();
 	let mut book = AddressBook::new(identity_contract);
 
 	assert_eq!(book.remove_address_book(), Err(Error::AddressBookDoesntExist));
 	assert_eq!(book.create_address_book(), Ok(()));
 	assert_eq!(book.remove_address_book(), Ok(()));
+
+	assert_eq!(recorded_events().count(), 2);
+	let last_event = recorded_events().last().unwrap();
+	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
+		.expect("Failed to decode event");
+
+	let Event::AddressBookRemoved(AddressBookRemoved { owner }) =
+        decoded_event else { panic!("AddressBookCreated event should be emitted") };
+
+	assert_eq!(owner, alice);
 }
 
 #[ink::test]

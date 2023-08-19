@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 use common::{ensure, types::*};
-use ink::prelude::vec::Vec;
+use ink::{codegen::EmitEvent, prelude::vec::Vec, EnvAccess};
 
 #[cfg(test)]
 mod tests;
@@ -78,12 +78,12 @@ mod address_book {
 	}
 
 	#[ink(event)]
-	pub struct NickNameUpdated {
+	pub struct NicknameUpdated {
 		/// The owner of the address book.
 		#[ink(topic)]
 		pub(crate) owner: AccountId,
 		/// The identity that received a new nickname.
-		pub(crate) identity_no: IdentityNo,
+		pub(crate) identity: IdentityNo,
 		/// The new nickname.
 		pub(crate) new_nickname: Option<Nickname>,
 	}
@@ -118,7 +118,9 @@ mod address_book {
 			self.address_book_of
 				.insert(caller, &AddressBookInfo { identities: Default::default() });
 
-			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookCreated { owner: caller });
+			<EnvAccess<'_, DefaultEnvironment> as EmitEvent<AddressBook>>::emit_event::<
+				address_book::AddressBookCreated,
+			>(self.env(), AddressBookCreated { owner: caller });
 
 			Ok(())
 		}
@@ -132,7 +134,9 @@ mod address_book {
 
 			self.address_book_of.remove(caller);
 
-			ink::env::emit_event::<DefaultEnvironment, _>(AddressBookRemoved { owner: caller });
+			<EnvAccess<'_, DefaultEnvironment> as EmitEvent<AddressBook>>::emit_event::<
+				address_book::AddressBookRemoved,
+			>(self.env(), AddressBookRemoved { owner: caller });
 
 			Ok(())
 		}
@@ -167,10 +171,9 @@ mod address_book {
 			address_book.add_identity(identity_no, nickname)?;
 			self.address_book_of.insert(caller, &address_book);
 
-			ink::env::emit_event::<DefaultEnvironment, _>(IdentityAdded {
-				owner: caller,
-				identity: identity_no,
-			});
+			<EnvAccess<'_, DefaultEnvironment> as EmitEvent<AddressBook>>::emit_event::<
+				address_book::IdentityAdded,
+			>(self.env(), IdentityAdded { owner: caller, identity: identity_no });
 
 			Ok(())
 		}
@@ -188,10 +191,9 @@ mod address_book {
 			address_book.remove_identity(identity_no)?;
 			self.address_book_of.insert(caller, &address_book);
 
-			ink::env::emit_event::<DefaultEnvironment, _>(IdentityRemoved {
-				owner: caller,
-				identity: identity_no,
-			});
+			<EnvAccess<'_, DefaultEnvironment> as EmitEvent<AddressBook>>::emit_event::<
+				address_book::IdentityRemoved,
+			>(self.env(), IdentityRemoved { owner: caller, identity: identity_no });
 
 			Ok(())
 		}
@@ -212,11 +214,9 @@ mod address_book {
 			address_book.update_nickname(identity_no, new_nickname.clone())?;
 			self.address_book_of.insert(caller, &address_book);
 
-			ink::env::emit_event::<DefaultEnvironment, _>(NickNameUpdated {
-				owner: caller,
-				identity_no,
-				new_nickname,
-			});
+			<EnvAccess<'_, DefaultEnvironment> as EmitEvent<AddressBook>>::emit_event::<
+				address_book::NicknameUpdated,
+			>(self.env(), NicknameUpdated { owner: caller, identity: identity_no, new_nickname });
 
 			Ok(())
 		}
