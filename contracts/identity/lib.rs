@@ -66,7 +66,15 @@ mod identity {
 		pub(crate) latest_identity_no: IdentityNo,
 
 		/// The chain information associated with a specific `ChainId`.
+		///
+		/// NOTE: This mapping is only modifiable by the admin.
 		pub(crate) chain_info_of: Mapping<ChainId, ChainInfo>,
+
+		/// Keeps track of the `ChainId`s for all the chains that are inside the
+		/// `chain_info_of` mapping.
+		///
+		/// NOTE: This mapping is only modifiable by the admin.
+		pub(crate) chain_ids: Vec<ChainId>,
 
 		/// The admin account has the ability to update the list of supported
 		/// chains that can be used in Dotflow.
@@ -74,10 +82,6 @@ mod identity {
 		/// In the future it could be a good idea to have this controlled by
 		/// governance.
 		pub(crate) admin: AccountId,
-
-		/// Keeps track of the lastest `ChainId`. Gets incremented whenever a
-		/// new chain is added.
-		pub(crate) chain_id_count: ChainId,
 	}
 
 	/// Events
@@ -183,26 +187,33 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				chain_info_of: Default::default(),
+				chain_ids: Default::default(),
 				recovery_account_of: Default::default(),
 				admin: caller,
-				chain_id_count: 0,
 			}
 		}
 
 		#[ink(constructor)]
-		pub fn init_with_chains(chains: Vec<ChainInfo>) -> Self {
+		pub fn init_with_chains(chains: Vec<ChainInfo>, chain_ids: Vec<ChainId>) -> Self {
 			let mut chain_info_of = Mapping::default();
+
+			assert!(
+				chains.len() == chain_ids.len(),
+				"Each chain needs to have a corresponding chain id specified."
+			);
 
 			// Iterate over all the chains provided and make sure that no
 			// fields are exceeding the length limits.
-			chains.clone().into_iter().enumerate().for_each(|(chain_id, chain)| {
-				assert!(
-					chain.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
-					"Chain rpc url is too long"
-				);
-				let chain_id = chain_id as ChainId;
-				chain_info_of.insert(chain_id, &chain);
-			});
+			chain_ids.clone().into_iter().zip(chains.clone().into_iter()).for_each(
+				|(chain_id, chain)| {
+					assert!(
+						chain.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
+						"Chain rpc url is too long"
+					);
+					let chain_id = chain_id as ChainId;
+					chain_info_of.insert(chain_id, &chain);
+				},
+			);
 
 			let caller = Self::env().caller();
 			Self {
@@ -211,7 +222,7 @@ mod identity {
 				identity_of: Default::default(),
 				latest_identity_no: 0,
 				chain_info_of,
-				chain_id_count: chains.len() as ChainId,
+				chain_ids,
 				recovery_account_of: Default::default(),
 				admin: caller,
 			}
@@ -264,7 +275,9 @@ mod identity {
 		/// A list of all the available chains each associated with a `ChainId`.
 		#[ink(message)]
 		pub fn available_chains(&self) -> Vec<(ChainId, ChainInfo)> {
-			(0..self.chain_id_count)
+			self.chain_ids
+				.clone()
+				.into_iter()
 				.map(|id| (id, self.chain_info_of(id)))
 				.filter_map(|(id, maybe_chain)| maybe_chain.map(|info| (id, info)))
 				.collect()
@@ -371,7 +384,7 @@ mod identity {
 		}
 
 		#[ink(message)]
-		pub fn add_chain(&mut self, info: ChainInfo) -> Result<ChainId, Error> {
+		pub fn add_chain(&mut self, chain_id: ChainId, info: ChainInfo) -> Result<(), Error> {
 			let caller = self.env().caller();
 
 			// Only the contract owner can add a chain
@@ -380,16 +393,14 @@ mod identity {
 			// Ensure that the rpc url is not exceeding the length limit.
 			ensure!(info.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT), Error::ChainRpcUrlTooLong);
 
-			let chain_id = self.chain_id_count;
 			self.chain_info_of.insert(chain_id, &info);
-
-			self.chain_id_count = self.chain_id_count.saturating_add(1);
+			self.chain_ids.push(chain_id);
 
 			let ChainInfo { rpc_urls, account_type } = info;
 
 			self.env().emit_event(ChainAdded { chain_id, rpc_urls, account_type });
 
-			Ok(chain_id)
+			Ok(())
 		}
 
 		#[ink(message)]
@@ -441,6 +452,7 @@ mod identity {
 			ensure!(chain.is_some(), Error::InvalidChain);
 
 			self.chain_info_of.remove(chain_id);
+			self.chain_ids.retain(|&c_id| c_id != chain_id);
 
 			self.env().emit_event(ChainRemoved { chain_id });
 
