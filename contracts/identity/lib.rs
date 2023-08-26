@@ -15,8 +15,8 @@ pub use self::identity::{Identity, IdentityRef};
 /// Encrypted addresses should never exceed this size limit.
 const ADDRESS_SIZE_LIMIT: usize = 128;
 
-/// Limit the rpc url length of a network.
-const NETWORK_RPC_URL_LIMIT: usize = 64;
+/// Limit the rpc url length of a chain.
+const CHAIN_RPC_URL_LIMIT: usize = 64;
 
 /// All the possible errors that may occur when interacting with the identity
 /// contract.
@@ -26,10 +26,10 @@ pub enum Error {
 	NotAllowed,
 	IdentityDoesntExist,
 	AddressAlreadyAdded,
-	InvalidNetwork,
+	InvalidChain,
 	AddressSizeExceeded,
-	NetworkNameTooLong,
-	NetworkRpcUrlTooLong,
+	ChainNameTooLong,
+	ChainRpcUrlTooLong,
 	AlreadyIdentityOwner,
 }
 
@@ -37,7 +37,7 @@ pub enum Error {
 mod identity {
 	use super::*;
 	use crate::types::*;
-	use common::types::{NetworkInfo, *};
+	use common::types::{ChainInfo, *};
 	use ink::storage::Mapping;
 
 	/// Storage
@@ -65,19 +65,19 @@ mod identity {
 		/// so this storage value keeps track of that.
 		pub(crate) latest_identity_no: IdentityNo,
 
-		/// The network information associated with a specific `NetworkId`.
-		pub(crate) network_info_of: Mapping<NetworkId, NetworkInfo>,
+		/// The chain information associated with a specific `ChainId`.
+		pub(crate) chain_info_of: Mapping<ChainId, ChainInfo>,
 
 		/// The admin account has the ability to update the list of supported
-		/// networks that can be used in Dotflow.
+		/// chains that can be used in Dotflow.
 		///
 		/// In the future it could be a good idea to have this controlled by
 		/// governance.
 		pub(crate) admin: AccountId,
 
-		/// Keeps track of the lastest `NetworkId`. Gets incremented whenever a
-		/// new network is added.
-		pub(crate) network_id_count: NetworkId,
+		/// Keeps track of the lastest `ChainId`. Gets incremented whenever a
+		/// new chain is added.
+		pub(crate) chain_id_count: ChainId,
 	}
 
 	/// Events
@@ -95,10 +95,10 @@ mod identity {
 		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
-		/// The network on which a new address has been added.
-		pub(crate) network: NetworkId,
+		/// The chain on which a new address has been added.
+		pub(crate) chain: ChainId,
 		/// The newly added address.
-		pub(crate) address: NetworkAddress,
+		pub(crate) address: ChainAddress,
 	}
 
 	#[ink(event)]
@@ -106,10 +106,10 @@ mod identity {
 		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
-		/// The network on which the address has been updated.
-		pub(crate) network: NetworkId,
+		/// The chain on which the address has been updated.
+		pub(crate) chain: ChainId,
 		/// The updated address value.
-		pub(crate) updated_address: NetworkAddress,
+		pub(crate) updated_address: ChainAddress,
 	}
 
 	#[ink(event)]
@@ -117,8 +117,8 @@ mod identity {
 		/// The `IdentityNo` of the identity that got updated.
 		#[ink(topic)]
 		pub(crate) identity_no: IdentityNo,
-		/// The network on which the address has been removed.
-		pub(crate) network: NetworkId,
+		/// The chain on which the address has been removed.
+		pub(crate) chain: ChainId,
 	}
 
 	#[ink(event)]
@@ -129,33 +129,33 @@ mod identity {
 	}
 
 	#[ink(event)]
-	pub struct NetworkAdded {
-		/// The `NetworkId` that is associated with the newly added network.
+	pub struct ChainAdded {
+		/// The `ChainId` that is associated with the newly added chain.
 		#[ink(topic)]
-		pub(crate) network_id: NetworkId,
-		/// The rpc url of the network that got added.
+		pub(crate) chain_id: ChainId,
+		/// The rpc url of the chain that got added.
 		pub(crate) rpc_urls: Vec<String>,
-		/// The address type used on the network.
+		/// The address type used on the chain.
 		pub(crate) account_type: AccountType,
 	}
 
 	#[ink(event)]
-	pub struct NetworkUpdated {
-		/// The `NetworkId` that is associated with the updated network.
+	pub struct ChainUpdated {
+		/// The `ChainId` that is associated with the updated chain.
 		#[ink(topic)]
-		pub(crate) network_id: NetworkId,
-		/// The rpc url of the updated network.
+		pub(crate) chain_id: ChainId,
+		/// The rpc url of the updated chain.
 		pub(crate) rpc_urls: Vec<String>,
-		/// The address type used on the updated network.
+		/// The address type used on the updated chain.
 		pub(crate) account_type: AccountType,
 	}
 
 	#[ink(event)]
-	pub struct NetworkRemoved {
-		/// The `NetworkId` that is associated with the network that got
+	pub struct ChainRemoved {
+		/// The `ChainId` that is associated with the chain that got
 		/// removed.
 		#[ink(topic)]
-		pub(crate) network_id: NetworkId,
+		pub(crate) chain_id: ChainId,
 	}
 
 	#[ink(event)]
@@ -182,26 +182,26 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_info_of: Default::default(),
+				chain_info_of: Default::default(),
 				recovery_account_of: Default::default(),
 				admin: caller,
-				network_id_count: 0,
+				chain_id_count: 0,
 			}
 		}
 
 		#[ink(constructor)]
-		pub fn init_with_networks(networks: Vec<NetworkInfo>) -> Self {
-			let mut network_info_of = Mapping::default();
+		pub fn init_with_chains(chains: Vec<ChainInfo>) -> Self {
+			let mut chain_info_of = Mapping::default();
 
-			// Iterate over all the networks provided and make sure that no
+			// Iterate over all the chains provided and make sure that no
 			// fields are exceeding the length limits.
-			networks.clone().into_iter().enumerate().for_each(|(network_id, network)| {
+			chains.clone().into_iter().enumerate().for_each(|(chain_id, chain)| {
 				assert!(
-					network.ensure_rpc_url_size_limit(NETWORK_RPC_URL_LIMIT),
-					"Network rpc url is too long"
+					chain.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
+					"Chain rpc url is too long"
 				);
-				let network_id = network_id as NetworkId;
-				network_info_of.insert(network_id, &network);
+				let chain_id = chain_id as ChainId;
+				chain_info_of.insert(chain_id, &chain);
 			});
 
 			let caller = Self::env().caller();
@@ -210,8 +210,8 @@ mod identity {
 				owner_of: Default::default(),
 				identity_of: Default::default(),
 				latest_identity_no: 0,
-				network_info_of,
-				network_id_count: networks.len() as NetworkId,
+				chain_info_of,
+				chain_id_count: chains.len() as ChainId,
 				recovery_account_of: Default::default(),
 				admin: caller,
 			}
@@ -236,37 +236,37 @@ mod identity {
 			self.identity_of.get(owner)
 		}
 
-		/// Returns the network name that is associated with the specified `NetworkId`.
+		/// Returns the chain name that is associated with the specified `ChainId`.
 		#[ink(message)]
-		pub fn network_info_of(&self, network_id: NetworkId) -> Option<NetworkInfo> {
-			self.network_info_of.get(network_id)
+		pub fn chain_info_of(&self, chain_id: ChainId) -> Option<ChainInfo> {
+			self.chain_info_of.get(chain_id)
 		}
 
 		/// Returns the destination address of a transaction that needs to be
-		/// routed to the specified identity on the specified network.
+		/// routed to the specified identity on the specified chain.
 		#[ink(message)]
 		pub fn transaction_destination(
 			&self,
 			receiver: IdentityNo,
-			network: NetworkId,
-		) -> Result<NetworkAddress, Error> {
+			chain: ChainId,
+		) -> Result<ChainAddress, Error> {
 			let receiver_identity = self
 				.number_to_identity
 				.get(receiver)
 				.map_or(Err(Error::IdentityDoesntExist), Ok)?;
 
-			match receiver_identity.addresses.into_iter().find(|(id, _)| *id == network) {
+			match receiver_identity.addresses.into_iter().find(|(id, _)| *id == chain) {
 				Some((_, address)) => Ok(address),
-				None => Err(Error::InvalidNetwork),
+				None => Err(Error::InvalidChain),
 			}
 		}
 
-		/// A list of all the available networks each associated with a `NetworkId`.
+		/// A list of all the available chains each associated with a `ChainId`.
 		#[ink(message)]
-		pub fn available_networks(&self) -> Vec<(NetworkId, NetworkInfo)> {
-			(0..self.network_id_count)
-				.map(|id| (id, self.network_info_of(id)))
-				.filter_map(|(id, maybe_network)| maybe_network.map(|info| (id, info)))
+		pub fn available_chains(&self) -> Vec<(ChainId, ChainInfo)> {
+			(0..self.chain_id_count)
+				.map(|id| (id, self.chain_info_of(id)))
+				.filter_map(|(id, maybe_chain)| maybe_chain.map(|info| (id, info)))
 				.collect()
 		}
 
@@ -294,12 +294,12 @@ mod identity {
 			Ok(identity_no)
 		}
 
-		/// Adds an address for a given network
+		/// Adds an address for a given chain
 		#[ink(message)]
 		pub fn add_address(
 			&mut self,
-			network: NetworkId,
-			address: NetworkAddress,
+			chain: ChainId,
+			address: ChainAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
@@ -307,20 +307,20 @@ mod identity {
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.add_address(network, address.clone())?;
+			identity_info.add_address(chain, address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
-			self.env().emit_event(AddressAdded { identity_no, network, address });
+			self.env().emit_event(AddressAdded { identity_no, chain, address });
 
 			Ok(())
 		}
 
-		/// Updates the address of the given network
+		/// Updates the address of the given chain
 		#[ink(message)]
 		pub fn update_address(
 			&mut self,
-			network: NetworkId,
-			address: NetworkAddress,
+			chain: ChainId,
+			address: ChainAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
@@ -328,31 +328,31 @@ mod identity {
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.update_address(network, address.clone())?;
+			identity_info.update_address(chain, address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressUpdated {
 				identity_no,
-				network,
+				chain,
 				updated_address: address,
 			});
 
 			Ok(())
 		}
 
-		/// Removes the address by network
+		/// Removes the address by chain
 		#[ink(message)]
-		pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
+		pub fn remove_address(&mut self, chain: ChainId) -> Result<(), Error> {
 			let caller = self.env().caller();
 
 			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.remove_address(network)?;
+			identity_info.remove_address(chain)?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
-			self.env().emit_event(AddressRemoved { identity_no, network });
+			self.env().emit_event(AddressRemoved { identity_no, chain });
 
 			Ok(())
 		}
@@ -374,49 +374,49 @@ mod identity {
 		}
 
 		#[ink(message)]
-		pub fn add_network(&mut self, info: NetworkInfo) -> Result<NetworkId, Error> {
+		pub fn add_chain(&mut self, info: ChainInfo) -> Result<ChainId, Error> {
 			let caller = self.env().caller();
 
-			// Only the contract owner can add a network
+			// Only the contract owner can add a chain
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the rpc url is not exceeding the length limit.
 			ensure!(
-				info.ensure_rpc_url_size_limit(NETWORK_RPC_URL_LIMIT),
-				Error::NetworkRpcUrlTooLong
+				info.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
+				Error::ChainRpcUrlTooLong
 			);
 
-			let network_id = self.network_id_count;
-			self.network_info_of.insert(network_id, &info);
+			let chain_id = self.chain_id_count;
+			self.chain_info_of.insert(chain_id, &info);
 
-			self.network_id_count = self.network_id_count.saturating_add(1);
+			self.chain_id_count = self.chain_id_count.saturating_add(1);
 
-			let NetworkInfo { rpc_urls, account_type } = info;
+			let ChainInfo { rpc_urls, account_type } = info;
 
-			self.env().emit_event(NetworkAdded { network_id, rpc_urls, account_type });
+			self.env().emit_event(ChainAdded { chain_id, rpc_urls, account_type });
 
-			Ok(network_id)
+			Ok(chain_id)
 		}
 
 		#[ink(message)]
-		pub fn update_network(
+		pub fn update_chain(
 			&mut self,
-			network_id: NetworkId,
+			chain_id: ChainId,
 			new_rpc_url: Option<String>,
 			new_address_type: Option<AccountType>,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			// Only the contract owner can update a network
+			// Only the contract owner can update a chain
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			// Ensure that the given network id exists
+			// Ensure that the given chain id exists
 			let mut info =
-				self.network_info_of.get(network_id).map_or(Err(Error::InvalidNetwork), Ok)?;
+				self.chain_info_of.get(chain_id).map_or(Err(Error::InvalidChain), Ok)?;
 
-			// Ensure that the rpc url of the network doesn't exceed length limit.
+			// Ensure that the rpc url of the chain doesn't exceed length limit.
 			if let Some(rpc_url) = new_rpc_url {
-				ensure!(rpc_url.len() <= NETWORK_RPC_URL_LIMIT, Error::NetworkRpcUrlTooLong);
+				ensure!(rpc_url.len() <= CHAIN_RPC_URL_LIMIT, Error::ChainRpcUrlTooLong);
 				info.rpc_urls.push(rpc_url);
 			}
 
@@ -425,10 +425,10 @@ mod identity {
 			}
 
 			// Update storage items
-			self.network_info_of.insert(network_id, &info);
+			self.chain_info_of.insert(chain_id, &info);
 
-			self.env().emit_event(NetworkUpdated {
-				network_id,
+			self.env().emit_event(ChainUpdated {
+				chain_id,
 				rpc_urls: info.rpc_urls,
 				account_type: info.account_type,
 			});
@@ -437,19 +437,19 @@ mod identity {
 		}
 
 		#[ink(message)]
-		pub fn remove_network(&mut self, network_id: NetworkId) -> Result<(), Error> {
+		pub fn remove_chain(&mut self, chain_id: ChainId) -> Result<(), Error> {
 			let caller = self.env().caller();
 
-			// Only the contract owner can update a network
+			// Only the contract owner can update a chain
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			// Ensure that the given `network_id` exists
-			let network = self.network_info_of.get(network_id);
-			ensure!(network.is_some(), Error::InvalidNetwork);
+			// Ensure that the given `chain_id` exists
+			let chain = self.chain_info_of.get(chain_id);
+			ensure!(chain.is_some(), Error::InvalidChain);
 
-			self.network_info_of.remove(network_id);
+			self.chain_info_of.remove(chain_id);
 
-			self.env().emit_event(NetworkRemoved { network_id });
+			self.env().emit_event(ChainRemoved { chain_id });
 
 			Ok(())
 		}

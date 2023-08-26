@@ -11,54 +11,54 @@ use ink::storage::traits::StorageLayout;
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct IdentityInfo {
 	/// Each address is associated with a specific blockchain.
-	pub(crate) addresses: Vec<(NetworkId, NetworkAddress)>,
+	pub(crate) addresses: Vec<(ChainId, ChainAddress)>,
 }
 
 impl IdentityInfo {
-	/// Adds an address for the given network
+	/// Adds an address for the given chain
 	pub fn add_address(
 		&mut self,
-		network: NetworkId,
-		address: NetworkAddress,
+		chain: ChainId,
+		address: ChainAddress,
 	) -> Result<(), Error> {
 		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		ensure!(
-			!self.addresses.clone().into_iter().any(|address| address.0 == network),
+			!self.addresses.clone().into_iter().any(|address| address.0 == chain),
 			Error::AddressAlreadyAdded
 		);
-		self.addresses.push((network, address));
+		self.addresses.push((chain, address));
 
 		Ok(())
 	}
 
-	/// Updates the address of the given network
+	/// Updates the address of the given chain
 	pub fn update_address(
 		&mut self,
-		network: NetworkId,
-		new_address: NetworkAddress,
+		chain: ChainId,
+		new_address: ChainAddress,
 	) -> Result<(), Error> {
 		ensure!(new_address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		if let Some(position) =
-			self.addresses.clone().into_iter().position(|address| address.0 == network)
+			self.addresses.clone().into_iter().position(|address| address.0 == chain)
 		{
-			self.addresses[position] = (network, new_address);
+			self.addresses[position] = (chain, new_address);
 			Ok(())
 		} else {
-			Err(Error::InvalidNetwork)
+			Err(Error::InvalidChain)
 		}
 	}
 
-	/// Remove an address record by network
-	pub fn remove_address(&mut self, network: NetworkId) -> Result<(), Error> {
+	/// Remove an address record by chain
+	pub fn remove_address(&mut self, chain: ChainId) -> Result<(), Error> {
 		let old_count = self.addresses.len();
-		self.addresses.retain(|(net, _)| *net != network);
+		self.addresses.retain(|(net, _)| *net != chain);
 
 		let new_count = self.addresses.len();
 
 		if old_count == new_count {
-			Err(Error::InvalidNetwork)
+			Err(Error::InvalidChain)
 		} else {
 			Ok(())
 		}
