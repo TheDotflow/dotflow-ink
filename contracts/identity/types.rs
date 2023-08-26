@@ -11,12 +11,12 @@ use ink::storage::traits::StorageLayout;
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct IdentityInfo {
 	/// Each address is associated with a specific blockchain.
-	pub(crate) addresses: Vec<(ChainId, ChainAddress)>,
+	pub(crate) addresses: Vec<(ChainId, EncryptedAddress)>,
 }
 
 impl IdentityInfo {
 	/// Adds an address for the given chain
-	pub fn add_address(&mut self, chain: ChainId, address: ChainAddress) -> Result<(), Error> {
+	pub fn add_address(&mut self, chain: ChainId, address: EncryptedAddress) -> Result<(), Error> {
 		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		ensure!(
@@ -32,7 +32,7 @@ impl IdentityInfo {
 	pub fn update_address(
 		&mut self,
 		chain: ChainId,
-		new_address: ChainAddress,
+		new_address: EncryptedAddress,
 	) -> Result<(), Error> {
 		ensure!(new_address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 

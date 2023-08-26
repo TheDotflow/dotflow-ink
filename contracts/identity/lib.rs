@@ -98,7 +98,7 @@ mod identity {
 		/// The chain on which a new address has been added.
 		pub(crate) chain: ChainId,
 		/// The newly added address.
-		pub(crate) address: ChainAddress,
+		pub(crate) address: EncryptedAddress,
 	}
 
 	#[ink(event)]
@@ -109,7 +109,7 @@ mod identity {
 		/// The chain on which the address has been updated.
 		pub(crate) chain: ChainId,
 		/// The updated address value.
-		pub(crate) updated_address: ChainAddress,
+		pub(crate) updated_address: EncryptedAddress,
 	}
 
 	#[ink(event)]
@@ -249,7 +249,7 @@ mod identity {
 			&self,
 			receiver: IdentityNo,
 			chain: ChainId,
-		) -> Result<ChainAddress, Error> {
+		) -> Result<EncryptedAddress, Error> {
 			let receiver_identity = self
 				.number_to_identity
 				.get(receiver)
@@ -296,7 +296,11 @@ mod identity {
 
 		/// Adds an address for a given chain
 		#[ink(message)]
-		pub fn add_address(&mut self, chain: ChainId, address: ChainAddress) -> Result<(), Error> {
+		pub fn add_address(
+			&mut self,
+			chain: ChainId,
+			address: EncryptedAddress,
+		) -> Result<(), Error> {
 			let caller = self.env().caller();
 
 			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
@@ -316,7 +320,7 @@ mod identity {
 		pub fn update_address(
 			&mut self,
 			chain: ChainId,
-			address: ChainAddress,
+			address: EncryptedAddress,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
 

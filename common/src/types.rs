@@ -11,7 +11,7 @@ pub type IdentityNo = u32;
 /// We want to keep the address type very generic since we want to support any
 /// address format. We won't actually keep the addresses in the contract itself.
 /// Before storing them, we'll encrypt them to ensure privacy.
-pub type ChainAddress = Vec<u8>;
+pub type EncryptedAddress = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo chain.
 pub type ChainId = u32;
