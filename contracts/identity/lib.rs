@@ -204,16 +204,18 @@ mod identity {
 
 			// Iterate over all the chains provided and make sure that no
 			// fields are exceeding the length limits.
-			chain_ids.clone().into_iter().zip(chains.clone().into_iter()).for_each(
-				|(chain_id, chain)| {
+			chain_ids
+				.clone()
+				.into_iter()
+				.zip(chains.into_iter())
+				.for_each(|(chain_id, chain)| {
 					assert!(
 						chain.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
 						"Chain rpc url is too long"
 					);
 					let chain_id = chain_id as ChainId;
 					chain_info_of.insert(chain_id, &chain);
-				},
-			);
+				});
 
 			let caller = Self::env().caller();
 			Self {
