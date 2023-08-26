@@ -296,11 +296,7 @@ mod identity {
 
 		/// Adds an address for a given chain
 		#[ink(message)]
-		pub fn add_address(
-			&mut self,
-			chain: ChainId,
-			address: ChainAddress,
-		) -> Result<(), Error> {
+		pub fn add_address(&mut self, chain: ChainId, address: ChainAddress) -> Result<(), Error> {
 			let caller = self.env().caller();
 
 			let identity_no = self.identity_of.get(caller).map_or(Err(Error::NotAllowed), Ok)?;
@@ -331,11 +327,8 @@ mod identity {
 			identity_info.update_address(chain, address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
-			self.env().emit_event(AddressUpdated {
-				identity_no,
-				chain,
-				updated_address: address,
-			});
+			self.env()
+				.emit_event(AddressUpdated { identity_no, chain, updated_address: address });
 
 			Ok(())
 		}
@@ -381,10 +374,7 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the rpc url is not exceeding the length limit.
-			ensure!(
-				info.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
-				Error::ChainRpcUrlTooLong
-			);
+			ensure!(info.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT), Error::ChainRpcUrlTooLong);
 
 			let chain_id = self.chain_id_count;
 			self.chain_info_of.insert(chain_id, &info);
@@ -411,8 +401,7 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given chain id exists
-			let mut info =
-				self.chain_info_of.get(chain_id).map_or(Err(Error::InvalidChain), Ok)?;
+			let mut info = self.chain_info_of.get(chain_id).map_or(Err(Error::InvalidChain), Ok)?;
 
 			// Ensure that the rpc url of the chain doesn't exceed length limit.
 			if let Some(rpc_url) = new_rpc_url {

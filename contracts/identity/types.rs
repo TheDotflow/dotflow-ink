@@ -16,11 +16,7 @@ pub struct IdentityInfo {
 
 impl IdentityInfo {
 	/// Adds an address for the given chain
-	pub fn add_address(
-		&mut self,
-		chain: ChainId,
-		address: ChainAddress,
-	) -> Result<(), Error> {
+	pub fn add_address(&mut self, chain: ChainId, address: ChainAddress) -> Result<(), Error> {
 		ensure!(address.len() <= ADDRESS_SIZE_LIMIT, Error::AddressSizeExceeded);
 
 		ensure!(
