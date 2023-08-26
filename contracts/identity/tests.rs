@@ -19,7 +19,7 @@ fn constructor_works() {
 
 	assert_eq!(identity.latest_identity_no, 0);
 	assert_eq!(identity.admin, alice);
-	assert_eq!(identity.chain_id_count, 0);
+	assert_eq!(identity.chain_ids, vec![]);
 	assert_eq!(identity.available_chains(), Vec::default());
 }
 
@@ -79,20 +79,26 @@ fn add_address_to_identity_works() {
 	);
 
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://polkadot.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			0,
+			ChainInfo {
+				rpc_urls: vec!["ws://polkadot.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://moonbeam.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			2004,
+			ChainInfo {
+				rpc_urls: vec!["ws://moonbeam.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 
 	let polkadot: ChainId = 0;
-	let moonbeam: ChainId = 1;
+	let moonbeam: ChainId = 2004;
 
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
@@ -135,16 +141,22 @@ fn update_address_works() {
 
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://polkadot.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			0,
+			ChainInfo {
+				rpc_urls: vec!["ws://polkadot.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://moonbeam.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			2004,
+			ChainInfo {
+				rpc_urls: vec!["ws://moonbeam.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
@@ -154,7 +166,7 @@ fn update_address_works() {
 	);
 
 	let polkadot: ChainId = 0;
-	let moonbeam: ChainId = 1;
+	let moonbeam: ChainId = 2004;
 
 	let polkadot_address = alice.encode();
 
@@ -206,10 +218,13 @@ fn remove_address_works() {
 
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://polkadot.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			0,
+			ChainInfo {
+				rpc_urls: vec!["ws://polkadot.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
@@ -263,10 +278,13 @@ fn remove_identity_works() {
 	assert!(identity.create_identity().is_ok());
 
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://polkadot.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			0,
+			ChainInfo {
+				rpc_urls: vec!["ws://polkadot.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
@@ -315,10 +333,13 @@ fn address_size_limit_works() {
 
 	assert!(identity.create_identity().is_ok());
 	assert!(identity
-		.add_chain(ChainInfo {
-			rpc_urls: vec!["ws://polkadot.com".to_string()],
-			account_type: AccountId32,
-		})
+		.add_chain(
+			0,
+			ChainInfo {
+				rpc_urls: vec!["ws://polkadot.com".to_string()],
+				account_type: AccountId32,
+			}
+		)
 		.is_ok());
 
 	let polkadot = 0;
@@ -337,11 +358,11 @@ fn add_chain_works() {
 	assert_eq!(identity.admin, alice);
 
 	let polkadot_rpc_urls = vec!["ws://polkadot.com".to_string()];
-	let kusama_rpc_urls = vec!["ws://polkadot.com".to_string()];
+	let moonbeam_rpc_urls = vec!["ws://moonbeam.com".to_string()];
 
 	// Adding a chain successful
 	assert!(identity
-		.add_chain(ChainInfo { rpc_urls: polkadot_rpc_urls.clone(), account_type: AccountId32 })
+		.add_chain(0, ChainInfo { rpc_urls: polkadot_rpc_urls.clone(), account_type: AccountId32 })
 		.is_ok());
 
 	// Check emitted events
@@ -364,12 +385,13 @@ fn add_chain_works() {
 	// Check storage items updated
 	assert_eq!(identity.chain_info_of.get(chain_id), Some(info.clone()));
 	assert_eq!(identity.available_chains(), vec![(chain_id, info)]);
-	assert_eq!(identity.chain_id_count, 1);
+	assert_eq!(identity.chain_ids, vec![0]);
 
 	// Only the contract creator can add a new chain
 	set_caller::<DefaultEnvironment>(bob);
 	assert_eq!(
-		identity.add_chain(ChainInfo { rpc_urls: kusama_rpc_urls, account_type: AccountId32 }),
+		identity
+			.add_chain(2004, ChainInfo { rpc_urls: moonbeam_rpc_urls, account_type: AccountId32 }),
 		Err(Error::NotAllowed)
 	);
 
@@ -379,7 +401,7 @@ fn add_chain_works() {
 	let long_rpc_urls: Vec<String> =
 		vec![String::from_utf8(vec![b'a'; CHAIN_RPC_URL_LIMIT + 1]).unwrap()];
 	assert_eq!(
-		identity.add_chain(ChainInfo { rpc_urls: long_rpc_urls, account_type: AccountId32 }),
+		identity.add_chain(2004, ChainInfo { rpc_urls: long_rpc_urls, account_type: AccountId32 }),
 		Err(Error::ChainRpcUrlTooLong)
 	);
 }
@@ -393,11 +415,13 @@ fn remove_chain_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(chain_id) =
-		identity.add_chain(ChainInfo { rpc_urls: polkadot_rpc_urls, account_type })
-	else {
-		panic!("Failed to add chain")
-	};
+	let chain_id = 0;
+	assert!(
+		identity
+			.add_chain(chain_id, ChainInfo { rpc_urls: polkadot_rpc_urls, account_type })
+			.is_ok(),
+		"Failed to add chain"
+	);
 
 	// Remove chain: chain doesn't exist
 	assert_eq!(identity.remove_chain(chain_id + 1), Err(Error::InvalidChain));
@@ -431,7 +455,7 @@ fn remove_chain_works() {
 fn update_chain_works() {
 	let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
 	let polkadot_rpc = "ws://pokladot.com".to_string();
-	let kusama_rpc = "ws://kusama.com".to_string();
+	let acala_rpc = "ws://acala.com".to_string();
 	let moonbeam_rpc = "ws://moonbeam.com".to_string();
 
 	let account_type = AccountId32;
@@ -439,15 +463,22 @@ fn update_chain_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let Ok(polkadot_id) = identity.add_chain(ChainInfo {
-		rpc_urls: vec![polkadot_rpc.clone()],
-		account_type: account_type.clone(),
-	}) else {
-		panic!("Failed to add chain")
-	};
+	let polkadot_id = 0;
+	assert!(
+		identity
+			.add_chain(
+				polkadot_id,
+				ChainInfo {
+					rpc_urls: vec![polkadot_rpc.clone()],
+					account_type: account_type.clone(),
+				}
+			)
+			.is_ok(),
+		"Failed to add chain"
+	);
 
 	assert!(identity
-		.add_chain(ChainInfo { rpc_urls: vec![kusama_rpc], account_type })
+		.add_chain(2000, ChainInfo { rpc_urls: vec![acala_rpc], account_type })
 		.is_ok());
 
 	// Only the contract owner can update a chain
@@ -537,12 +568,19 @@ fn transfer_ownership_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_chain(ChainInfo {
-		rpc_urls: vec!["ws://polkadot.com".to_string()],
-		account_type: AccountId32,
-	}) else {
-		panic!("Failed to add chain")
-	};
+	let polkadot_id = 0;
+	assert!(
+		identity
+			.add_chain(
+				polkadot_id,
+				ChainInfo {
+					rpc_urls: vec!["ws://polkadot.com".to_string()],
+					account_type: AccountId32,
+				}
+			)
+			.is_ok(),
+		"Failed to add chain"
+	);
 
 	assert!(identity.create_identity().is_ok());
 
@@ -615,43 +653,44 @@ fn transfer_ownership_fails_when_new_owner_has_an_identity() {
 #[ink::test]
 fn init_with_chains_works() {
 	let polkadot_rpc = "ws://polkadot.com".to_string();
-	let kusama_rpc = "ws://kusama.com".to_string();
+	let acala_rpc = "ws://acala.com".to_string();
 	let moonbeam_rpc = "ws://moonbeam.com".to_string();
 	let astar_rpc = "ws://astar.com".to_string();
 
 	let chains = vec![
 		ChainInfo { rpc_urls: vec![polkadot_rpc.clone()], account_type: AccountId32 },
-		ChainInfo { rpc_urls: vec![kusama_rpc.clone()], account_type: AccountId32 },
+		ChainInfo { rpc_urls: vec![acala_rpc.clone()], account_type: AccountId32 },
 		ChainInfo { rpc_urls: vec![moonbeam_rpc.clone()], account_type: AccountKey20 },
 		ChainInfo { rpc_urls: vec![astar_rpc.clone()], account_type: AccountId32 },
 	];
-	let identity = Identity::init_with_chains(chains);
+	let chain_ids = vec![0, 2000, 2004, 2006];
+	let identity = Identity::init_with_chains(chains, chain_ids.clone());
 
 	assert_eq!(
 		identity.chain_info_of(0),
 		Some(ChainInfo { rpc_urls: vec![polkadot_rpc.clone()], account_type: AccountId32 })
 	);
 	assert_eq!(
-		identity.chain_info_of(1),
-		Some(ChainInfo { rpc_urls: vec![kusama_rpc.clone()], account_type: AccountId32 })
+		identity.chain_info_of(2000),
+		Some(ChainInfo { rpc_urls: vec![acala_rpc.clone()], account_type: AccountId32 })
 	);
 	assert_eq!(
-		identity.chain_info_of(2),
+		identity.chain_info_of(2004),
 		Some(ChainInfo { rpc_urls: vec![moonbeam_rpc.clone()], account_type: AccountKey20 })
 	);
 	assert_eq!(
-		identity.chain_info_of(3),
+		identity.chain_info_of(2006),
 		Some(ChainInfo { rpc_urls: vec![astar_rpc.clone()], account_type: AccountId32 })
 	);
 
-	assert_eq!(identity.chain_id_count, 4);
+	assert_eq!(identity.chain_ids, chain_ids);
 	assert_eq!(
 		identity.available_chains(),
 		vec![
 			(0, ChainInfo { rpc_urls: vec![polkadot_rpc], account_type: AccountId32 }),
-			(1, ChainInfo { rpc_urls: vec![kusama_rpc], account_type: AccountId32 }),
-			(2, ChainInfo { rpc_urls: vec![moonbeam_rpc], account_type: AccountKey20 }),
-			(3, ChainInfo { rpc_urls: vec![astar_rpc], account_type: AccountId32 })
+			(2000, ChainInfo { rpc_urls: vec![acala_rpc], account_type: AccountId32 }),
+			(2004, ChainInfo { rpc_urls: vec![moonbeam_rpc], account_type: AccountKey20 }),
+			(2006, ChainInfo { rpc_urls: vec![astar_rpc], account_type: AccountId32 })
 		]
 	);
 }
@@ -660,10 +699,11 @@ fn init_with_chains_works() {
 #[should_panic(expected = "Chain rpc url is too long")]
 fn init_with_chains_fail() {
 	let rpc_url_long = String::from_utf8(vec![b'a'; CHAIN_RPC_URL_LIMIT + 1]).unwrap();
-	Identity::init_with_chains(vec![ChainInfo {
-		rpc_urls: vec![rpc_url_long],
-		account_type: AccountId32,
-	}]);
+	let chain_ids = vec![0];
+	Identity::init_with_chains(
+		vec![ChainInfo { rpc_urls: vec![rpc_url_long], account_type: AccountId32 }],
+		chain_ids,
+	);
 }
 
 #[ink::test]
@@ -673,12 +713,19 @@ fn getting_transaction_destination_works() {
 
 	let mut identity = Identity::new();
 
-	let Ok(polkadot_id) = identity.add_chain(ChainInfo {
-		rpc_urls: vec!["ws://polkadot.com".to_string()],
-		account_type: AccountId32,
-	}) else {
-		panic!("Failed to add chain")
-	};
+	let polkadot_id = 0;
+	assert!(
+		identity
+			.add_chain(
+				polkadot_id,
+				ChainInfo {
+					rpc_urls: vec!["ws://polkadot.com".to_string()],
+					account_type: AccountId32,
+				}
+			)
+			.is_ok(),
+		"Failed to add chain"
+	);
 
 	assert!(identity.create_identity().is_ok());
 
@@ -702,13 +749,20 @@ fn getting_transaction_destination_works() {
 	// Fails since the provided `identity_no` does not exist.
 	assert_eq!(identity.transaction_destination(42, polkadot_id), Err(Error::IdentityDoesntExist));
 
+	let moonbeam_id = 2004;
 	// Fails because alice does not have an address on the Moonbeam chain.
-	let Ok(moonbeam_id) = identity.add_chain(ChainInfo {
-		rpc_urls: vec!["ws://moonbeam.com".to_string()],
-		account_type: AccountId32,
-	}) else {
-		panic!("Failed to add chain")
-	};
+	assert!(
+		identity
+			.add_chain(
+				moonbeam_id,
+				ChainInfo {
+					rpc_urls: vec!["ws://moonbeam.com".to_string()],
+					account_type: AccountId32,
+				}
+			)
+			.is_ok(),
+		"Failed to add chain"
+	);
 
 	assert_eq!(
 		identity.transaction_destination(identity_no, moonbeam_id),
