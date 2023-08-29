@@ -32,11 +32,23 @@ This way the other user will be able to decrypt and access his addresses.
 
 ## Deployment
 
-The contract is currently deployed on [Astar Shibuya](https://docs.astar.network/docs/build/Introduction/astar_family/#shibuya) and is used by the frontend when running locally.
+The contracts are currently deployed on [Rococo-contracts](https://use.ink/testnet/) and is used by the frontend when running locally.
 
-Contract address: Yib3XD3rkKWstaCB6P3FYCuWu2gZ4nwLoi6x9w8e9UoLNjh
+Identity contract address: 5D2uA3EdePpH3iMsfzNLPkwQEy82iC2BEXpKJc3d1uvvTQht
+
+Address book contract address:
+5FKEDvAorCAv4kFZnQxKg2wugkHGz43J18SCFcEBdhdFnn81
+
+### Deployment on Rococo-contracts
+
+To interact or deploy the contracts you will need to have some ROC tokens on the rococo-contracts parachain. Follow the steps on this page to get some tokens: [how to get ROC](https://use.ink/testnet/#2-get-testnet-tokens)
+
+To deploy the contract on rococo-contracts you can follow this [documentation page](https://use.ink/testnet/)
 
 ### Deployment on Astar Shibuya
+
+We were initially deploying our project to Shibuya, but we were running into some problems with the Shibuya RPC nodes so for that reason we switched to the rococo-contracts parachain.
+
 To deploy the contract on the testnet you first need to obtain some Astar SBY tokens. 
 
 The easiest way to get SBY tokens is to go to the  [Astar Portal](https://portal.astar.network/) login in with a wallet and select the Shibuya network. After that use the faucet option to get some tokens for the deployment.
@@ -44,7 +56,6 @@ The easiest way to get SBY tokens is to go to the  [Astar Portal](https://portal
 After successfully getting some SBY tokens you will need to build the contract to get a WASM executable. The steps to build the contract are explained in the following section.
 
 Finally, to deploy the contract go to [Polkadot.js](https://polkadot.js.org/) and connect to the Shibuya network. Once Shibuya network is selected you will be able to Developer -> Contract section where you can deploy the contract.
-
 
 ## Build & Test Locally 
 1. Make sure to have the latest [cargo contract](https://crates.io/crates/cargo-contract).
