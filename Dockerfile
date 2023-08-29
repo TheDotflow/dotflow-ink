@@ -8,4 +8,4 @@ WORKDIR /app
 COPY . .
 
 # Set `cargo test` as executable.
-ENTRYPOINT ["/usr/local/cargo/bin/cargo", "test"]
+ENTRYPOINT ["/usr/local/cargo/bin/cargo", "test", "--features e2e-tests"]
