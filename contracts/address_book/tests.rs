@@ -41,8 +41,9 @@ fn create_address_book_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::AddressBookCreated(AddressBookCreated { owner }) =
-        decoded_event else { panic!("AddressBookCreated event should be emitted") };
+	let Event::AddressBookCreated(AddressBookCreated { owner }) = decoded_event else {
+		panic!("AddressBookCreated event should be emitted")
+	};
 
 	assert_eq!(owner, alice);
 
@@ -65,8 +66,9 @@ fn remove_address_book_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::AddressBookRemoved(AddressBookRemoved { owner }) =
-        decoded_event else { panic!("AddressBookCreated event should be emitted") };
+	let Event::AddressBookRemoved(AddressBookRemoved { owner }) = decoded_event else {
+		panic!("AddressBookCreated event should be emitted")
+	};
 
 	assert_eq!(owner, alice);
 }

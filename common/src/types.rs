@@ -1,6 +1,6 @@
 //! Types used in the dotflow contracts.
 
-use ink::prelude::{string::String, vec::Vec};
+use ink::prelude::vec::Vec;
 
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
@@ -28,16 +28,6 @@ pub enum AccountType {
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct ChainInfo {
-	/// We need to know the rpc url of each chain otherwise we won't know how
-	/// to communicate with it.
-	pub rpc_urls: Vec<String>,
 	/// We need to know the address type when making XCM transfers.
 	pub account_type: AccountType,
-}
-
-impl ChainInfo {
-	// Makes sure none of the chain's urls exceed the size limit.
-	pub fn ensure_rpc_url_size_limit(&self, limit: usize) -> bool {
-		self.rpc_urls.iter().all(|url| url.len() <= limit)
-	}
 }
