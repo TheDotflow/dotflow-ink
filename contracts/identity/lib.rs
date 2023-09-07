@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use ink::prelude::{string::String, vec::Vec};
+use ink::prelude::vec::Vec;
 #[cfg(test)]
 mod tests;
 
@@ -15,9 +15,6 @@ pub use self::identity::{Identity, IdentityRef};
 /// Encrypted addresses should never exceed this size limit.
 const ADDRESS_SIZE_LIMIT: usize = 128;
 
-/// Limit the rpc url length of a chain.
-const CHAIN_RPC_URL_LIMIT: usize = 64;
-
 /// All the possible errors that may occur when interacting with the identity
 /// contract.
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
@@ -29,7 +26,6 @@ pub enum Error {
 	InvalidChain,
 	AddressSizeExceeded,
 	ChainNameTooLong,
-	ChainRpcUrlTooLong,
 	AlreadyIdentityOwner,
 }
 
@@ -137,8 +133,6 @@ mod identity {
 		/// The `ChainId` that is associated with the newly added chain.
 		#[ink(topic)]
 		pub(crate) chain_id: ChainId,
-		/// The rpc url of the chain that got added.
-		pub(crate) rpc_urls: Vec<String>,
 		/// The address type used on the chain.
 		pub(crate) account_type: AccountType,
 	}
@@ -148,8 +142,6 @@ mod identity {
 		/// The `ChainId` that is associated with the updated chain.
 		#[ink(topic)]
 		pub(crate) chain_id: ChainId,
-		/// The rpc url of the updated chain.
-		pub(crate) rpc_urls: Vec<String>,
 		/// The address type used on the updated chain.
 		pub(crate) account_type: AccountType,
 	}
@@ -209,10 +201,6 @@ mod identity {
 				.into_iter()
 				.zip(chains.into_iter())
 				.for_each(|(chain_id, chain)| {
-					assert!(
-						chain.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT),
-						"Chain rpc url is too long"
-					);
 					let chain_id = chain_id as ChainId;
 					chain_info_of.insert(chain_id, &chain);
 				});
@@ -392,15 +380,12 @@ mod identity {
 			// Only the contract owner can add a chain
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			// Ensure that the rpc url is not exceeding the length limit.
-			ensure!(info.ensure_rpc_url_size_limit(CHAIN_RPC_URL_LIMIT), Error::ChainRpcUrlTooLong);
-
 			self.chain_info_of.insert(chain_id, &info);
 			self.chain_ids.push(chain_id);
 
-			let ChainInfo { rpc_urls, account_type } = info;
+			let ChainInfo { account_type } = info;
 
-			self.env().emit_event(ChainAdded { chain_id, rpc_urls, account_type });
+			self.env().emit_event(ChainAdded { chain_id, account_type });
 
 			Ok(())
 		}
@@ -409,7 +394,6 @@ mod identity {
 		pub fn update_chain(
 			&mut self,
 			chain_id: ChainId,
-			new_rpc_url: Option<String>,
 			new_address_type: Option<AccountType>,
 		) -> Result<(), Error> {
 			let caller = self.env().caller();
@@ -420,12 +404,6 @@ mod identity {
 			// Ensure that the given chain id exists
 			let mut info = self.chain_info_of.get(chain_id).map_or(Err(Error::InvalidChain), Ok)?;
 
-			// Ensure that the rpc url of the chain doesn't exceed length limit.
-			if let Some(rpc_url) = new_rpc_url {
-				ensure!(rpc_url.len() <= CHAIN_RPC_URL_LIMIT, Error::ChainRpcUrlTooLong);
-				info.rpc_urls.push(rpc_url);
-			}
-
 			if let Some(account_type) = new_address_type {
 				info.account_type = account_type;
 			}
@@ -433,11 +411,8 @@ mod identity {
 			// Update storage items
 			self.chain_info_of.insert(chain_id, &info);
 
-			self.env().emit_event(ChainUpdated {
-				chain_id,
-				rpc_urls: info.rpc_urls,
-				account_type: info.account_type,
-			});
+			self.env()
+				.emit_event(ChainUpdated { chain_id, account_type: info.account_type });
 
 			Ok(())
 		}
