@@ -34,10 +34,10 @@ This way the other user will be able to decrypt and access his addresses.
 
 The contracts are currently deployed on [Rococo-contracts](https://use.ink/testnet/) and is used by the frontend when running locally.
 
-Identity contract address: 5D2uA3EdePpH3iMsfzNLPkwQEy82iC2BEXpKJc3d1uvvTQht
+Identity contract address: 5E1rtM1uNKNttdYYEXdVnfCdVrg9DGgJG1ERiytAqPNjjGRf
 
 Address book contract address:
-5FKEDvAorCAv4kFZnQxKg2wugkHGz43J18SCFcEBdhdFnn81
+5ChUFfCSppd3rXqpYVJs5KAKgi9dz1zyEvWwpFvXLEvYFuVq
 
 ### Deployment on Rococo-contracts
 
