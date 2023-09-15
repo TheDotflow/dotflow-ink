@@ -1,6 +1,6 @@
 //! Ink! integration tests convering the identity contract functionality.
 use crate::{identity::*, types::*, *};
-use common::types::{AccountType::*, *};
+use common::types::{AccountType::*, Network::*, *};
 
 use ink::env::{
 	test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
@@ -78,8 +78,12 @@ fn add_address_to_identity_works() {
 		IdentityInfo { addresses: Default::default() }
 	);
 
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
-	assert!(identity.add_chain(2004, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
+	assert!(identity
+		.add_chain(2004, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	let polkadot: ChainId = 0;
 	let moonbeam: ChainId = 2004;
@@ -124,8 +128,12 @@ fn update_address_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
-	assert!(identity.add_chain(2004, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
+	assert!(identity
+		.add_chain(2004, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -185,7 +193,9 @@ fn remove_address_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -237,7 +247,9 @@ fn remove_identity_works() {
 
 	assert!(identity.create_identity().is_ok());
 
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -284,7 +296,9 @@ fn address_size_limit_works() {
 	let mut identity = Identity::new();
 
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	let polkadot = 0;
 
@@ -302,7 +316,9 @@ fn add_chain_works() {
 	assert_eq!(identity.admin, alice);
 
 	// Adding a chain successful
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(0, ChainInfo { account_type: AccountId32, network: Kusama })
+		.is_ok());
 
 	// Check emitted events
 	assert_eq!(recorded_events().count(), 1);
@@ -310,14 +326,15 @@ fn add_chain_works() {
 	let decoded_event = <Event as scale::Decode>::decode(&mut &last_event.data[..])
 		.expect("Failed to decode event");
 
-	let Event::ChainAdded(ChainAdded { chain_id, account_type }) = decoded_event else {
+	let Event::ChainAdded(ChainAdded { chain_id, account_type, network }) = decoded_event else {
 		panic!("ChainAdded event should be emitted")
 	};
 
 	assert_eq!(chain_id, 0);
 	assert_eq!(account_type, AccountId32);
+	assert_eq!(network, Kusama);
 
-	let info = ChainInfo { account_type: AccountId32 };
+	let info = ChainInfo { account_type: AccountId32, network: Kusama };
 
 	// Check storage items updated
 	assert_eq!(identity.chain_info_of.get(chain_id), Some(info.clone()));
@@ -327,7 +344,7 @@ fn add_chain_works() {
 	// Only the contract creator can add a new chain
 	set_caller::<DefaultEnvironment>(bob);
 	assert_eq!(
-		identity.add_chain(2004, ChainInfo { account_type: AccountId32 }),
+		identity.add_chain(2004, ChainInfo { account_type: AccountId32, network: Kusama }),
 		Err(Error::NotAllowed)
 	);
 
@@ -338,13 +355,14 @@ fn add_chain_works() {
 fn remove_chain_works() {
 	let DefaultAccounts::<DefaultEnvironment> { alice, bob, .. } = get_default_accounts();
 	let account_type = AccountId32;
+	let network = Kusama;
 
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
 	let chain_id = 0;
 	assert!(
-		identity.add_chain(chain_id, ChainInfo { account_type }).is_ok(),
+		identity.add_chain(chain_id, ChainInfo { account_type, network }).is_ok(),
 		"Failed to add chain"
 	);
 
@@ -387,12 +405,15 @@ fn update_chain_works() {
 	let polkadot_id = 0;
 	assert!(
 		identity
-			.add_chain(polkadot_id, ChainInfo { account_type: account_type.clone() })
+			.add_chain(
+				polkadot_id,
+				ChainInfo { account_type: account_type.clone(), network: Kusama }
+			)
 			.is_ok(),
 		"Failed to add chain"
 	);
 
-	assert!(identity.add_chain(2000, ChainInfo { account_type }).is_ok());
+	assert!(identity.add_chain(2000, ChainInfo { account_type, network: Kusama }).is_ok());
 
 	// Only the contract owner can update a chain
 	set_caller::<DefaultEnvironment>(bob);
@@ -465,7 +486,9 @@ fn transfer_ownership_works() {
 
 	let polkadot_id = 0;
 	assert!(
-		identity.add_chain(polkadot_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(polkadot_id, ChainInfo { account_type: AccountId32, network: Kusama })
+			.is_ok(),
 		"Failed to add chain"
 	);
 
@@ -540,27 +563,39 @@ fn transfer_ownership_fails_when_new_owner_has_an_identity() {
 #[ink::test]
 fn init_with_chains_works() {
 	let chains = vec![
-		ChainInfo { account_type: AccountId32 },
-		ChainInfo { account_type: AccountId32 },
-		ChainInfo { account_type: AccountKey20 },
-		ChainInfo { account_type: AccountId32 },
+		ChainInfo { account_type: AccountId32, network: Kusama },
+		ChainInfo { account_type: AccountId32, network: Kusama },
+		ChainInfo { account_type: AccountKey20, network: Kusama },
+		ChainInfo { account_type: AccountId32, network: Kusama },
 	];
 	let chain_ids = vec![0, 2000, 2004, 2006];
 	let identity = Identity::init_with_chains(chains, chain_ids.clone());
 
-	assert_eq!(identity.chain_info_of(0), Some(ChainInfo { account_type: AccountId32 }));
-	assert_eq!(identity.chain_info_of(2000), Some(ChainInfo { account_type: AccountId32 }));
-	assert_eq!(identity.chain_info_of(2004), Some(ChainInfo { account_type: AccountKey20 }));
-	assert_eq!(identity.chain_info_of(2006), Some(ChainInfo { account_type: AccountId32 }));
+	assert_eq!(
+		identity.chain_info_of(0),
+		Some(ChainInfo { account_type: AccountId32, network: Kusama })
+	);
+	assert_eq!(
+		identity.chain_info_of(2000),
+		Some(ChainInfo { account_type: AccountId32, network: Kusama })
+	);
+	assert_eq!(
+		identity.chain_info_of(2004),
+		Some(ChainInfo { account_type: AccountKey20, network: Kusama })
+	);
+	assert_eq!(
+		identity.chain_info_of(2006),
+		Some(ChainInfo { account_type: AccountId32, network: Kusama })
+	);
 
 	assert_eq!(identity.chain_ids, chain_ids);
 	assert_eq!(
 		identity.available_chains(),
 		vec![
-			(0, ChainInfo { account_type: AccountId32 }),
-			(2000, ChainInfo { account_type: AccountId32 }),
-			(2004, ChainInfo { account_type: AccountKey20 }),
-			(2006, ChainInfo { account_type: AccountId32 })
+			(0, ChainInfo { account_type: AccountId32, network: Kusama }),
+			(2000, ChainInfo { account_type: AccountId32, network: Kusama }),
+			(2004, ChainInfo { account_type: AccountKey20, network: Kusama }),
+			(2006, ChainInfo { account_type: AccountId32, network: Kusama })
 		]
 	);
 }
@@ -574,7 +609,9 @@ fn getting_transaction_destination_works() {
 
 	let polkadot_id = 0;
 	assert!(
-		identity.add_chain(polkadot_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(polkadot_id, ChainInfo { account_type: AccountId32, network: Polkadot })
+			.is_ok(),
 		"Failed to add chain"
 	);
 
@@ -603,7 +640,9 @@ fn getting_transaction_destination_works() {
 	let moonbeam_id = 2004;
 	// Fails because alice does not have an address on the Moonbeam chain.
 	assert!(
-		identity.add_chain(moonbeam_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(moonbeam_id, ChainInfo { account_type: AccountId32, network: Polkadot })
+			.is_ok(),
 		"Failed to add chain"
 	);
 

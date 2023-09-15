@@ -133,6 +133,8 @@ mod identity {
 		/// The `ChainId` that is associated with the newly added chain.
 		#[ink(topic)]
 		pub(crate) chain_id: ChainId,
+		/// The network to which the chain belongs.
+		pub(crate) network: Network,
 		/// The address type used on the chain.
 		pub(crate) account_type: AccountType,
 	}
@@ -383,9 +385,9 @@ mod identity {
 			self.chain_info_of.insert(chain_id, &info);
 			self.chain_ids.push(chain_id);
 
-			let ChainInfo { account_type } = info;
+			let ChainInfo { account_type, network } = info;
 
-			self.env().emit_event(ChainAdded { chain_id, account_type });
+			self.env().emit_event(ChainAdded { chain_id, account_type, network });
 
 			Ok(())
 		}

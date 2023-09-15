@@ -27,7 +27,16 @@ pub enum AccountType {
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
+pub enum Network {
+	Polkadot,
+	Kusama,
+}
+
+#[derive(scale::Encode, scale::Decode, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
 pub struct ChainInfo {
+	/// The network to which the chain belongs.
+	pub network: Network,
 	/// We need to know the address type when making XCM transfers.
 	pub account_type: AccountType,
 }
