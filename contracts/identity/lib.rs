@@ -266,12 +266,13 @@ mod identity {
 
 		/// A list of all the available chains each associated with a `ChainId`.
 		#[ink(message)]
-		pub fn available_chains(&self) -> Vec<(ChainId, ChainInfo)> {
+		pub fn available_chains(&self, network: Network) -> Vec<(ChainId, ChainInfo)> {
 			self.chain_ids
 				.clone()
 				.into_iter()
 				.map(|id| (id, self.chain_info_of(id)))
 				.filter_map(|(id, maybe_chain)| maybe_chain.map(|info| (id, info)))
+				.filter(|(_, info)| info.network == network)
 				.collect()
 		}
 
