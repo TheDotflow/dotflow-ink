@@ -61,7 +61,8 @@ mod identity {
 		/// so this storage value keeps track of that.
 		pub(crate) latest_identity_no: IdentityNo,
 
-		/// The chain information associated with a specific `ChainId`.
+		/// The chain information associated with a specific `ChainId` on the
+		/// specific network.
 		///
 		/// NOTE: This mapping is only modifiable by the admin.
 		pub(crate) chain_info_of: Mapping<ChainId, ChainInfo>,
@@ -133,8 +134,6 @@ mod identity {
 		/// The `ChainId` that is associated with the newly added chain.
 		#[ink(topic)]
 		pub(crate) chain_id: ChainId,
-		/// The network to which the chain belongs.
-		pub(crate) network: Network,
 		/// The address type used on the chain.
 		pub(crate) account_type: AccountType,
 	}
@@ -203,7 +202,6 @@ mod identity {
 				.into_iter()
 				.zip(chains.into_iter())
 				.for_each(|(chain_id, chain)| {
-					let chain_id = chain_id as ChainId;
 					chain_info_of.insert(chain_id, &chain);
 				});
 
@@ -266,13 +264,12 @@ mod identity {
 
 		/// A list of all the available chains each associated with a `ChainId`.
 		#[ink(message)]
-		pub fn available_chains(&self, network: Network) -> Vec<(ChainId, ChainInfo)> {
+		pub fn available_chains(&self) -> Vec<(ChainId, ChainInfo)> {
 			self.chain_ids
 				.clone()
 				.into_iter()
-				.map(|id| (id, self.chain_info_of(id)))
+				.map(|id| (id.clone(), self.chain_info_of(id)))
 				.filter_map(|(id, maybe_chain)| maybe_chain.map(|info| (id, info)))
-				.filter(|(_, info)| info.network == network)
 				.collect()
 		}
 
@@ -313,7 +310,7 @@ mod identity {
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.add_address(chain, address.clone())?;
+			identity_info.add_address(chain.clone(), address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressAdded { identity_no, chain, address });
@@ -334,7 +331,7 @@ mod identity {
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.update_address(chain, address.clone())?;
+			identity_info.update_address(chain.clone(), address.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env()
@@ -352,7 +349,7 @@ mod identity {
 
 			let mut identity_info = self.get_identity_info_of_caller(caller)?;
 
-			identity_info.remove_address(chain)?;
+			identity_info.remove_address(chain.clone())?;
 			self.number_to_identity.insert(identity_no, &identity_info);
 
 			self.env().emit_event(AddressRemoved { identity_no, chain });
@@ -383,12 +380,12 @@ mod identity {
 			// Only the contract owner can add a chain
 			ensure!(caller == self.admin, Error::NotAllowed);
 
-			self.chain_info_of.insert(chain_id, &info);
-			self.chain_ids.push(chain_id);
+			self.chain_info_of.insert(chain_id.clone(), &info);
+			self.chain_ids.push(chain_id.clone());
 
-			let ChainInfo { account_type, network } = info;
+			let ChainInfo { account_type } = info;
 
-			self.env().emit_event(ChainAdded { chain_id, account_type, network });
+			self.env().emit_event(ChainAdded { chain_id, account_type });
 
 			Ok(())
 		}
@@ -405,14 +402,14 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given chain id exists
-			let mut info = self.chain_info_of.get(chain_id).map_or(Err(Error::InvalidChain), Ok)?;
+			let mut info = self.chain_info_of.get(chain_id.clone()).map_or(Err(Error::InvalidChain), Ok)?;
 
 			if let Some(account_type) = new_address_type {
 				info.account_type = account_type;
 			}
 
 			// Update storage items
-			self.chain_info_of.insert(chain_id, &info);
+			self.chain_info_of.insert(chain_id.clone(), &info);
 
 			self.env()
 				.emit_event(ChainUpdated { chain_id, account_type: info.account_type });
@@ -428,11 +425,11 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given `chain_id` exists
-			let chain = self.chain_info_of.get(chain_id);
+			let chain = self.chain_info_of.get(chain_id.clone());
 			ensure!(chain.is_some(), Error::InvalidChain);
 
-			self.chain_info_of.remove(chain_id);
-			self.chain_ids.retain(|&c_id| c_id != chain_id);
+			self.chain_info_of.remove(chain_id.clone());
+			self.chain_ids.retain(|c_id| *c_id != chain_id.clone());
 
 			self.env().emit_event(ChainRemoved { chain_id });
 
