@@ -402,7 +402,8 @@ mod identity {
 			ensure!(caller == self.admin, Error::NotAllowed);
 
 			// Ensure that the given chain id exists
-			let mut info = self.chain_info_of.get(chain_id.clone()).map_or(Err(Error::InvalidChain), Ok)?;
+			let mut info =
+				self.chain_info_of.get(chain_id.clone()).map_or(Err(Error::InvalidChain), Ok)?;
 
 			if let Some(account_type) = new_address_type {
 				info.account_type = account_type;

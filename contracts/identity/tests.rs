@@ -1,6 +1,6 @@
 //! Ink! integration tests convering the identity contract functionality.
 use crate::{identity::*, types::*, *};
-use common::types::{AccountType::*, *};
+use common::types::{AccountType::*, Network::*, *};
 
 use ink::env::{
 	test::{default_accounts, recorded_events, set_caller, DefaultAccounts},
@@ -78,19 +78,23 @@ fn add_address_to_identity_works() {
 		IdentityInfo { addresses: Default::default() }
 	);
 
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
-	assert!(identity.add_chain(2004, ChainInfo { account_type: AccountId32 }).is_ok());
+	let polkadot: ChainId = (0, Polkadot);
+	let moonbeam: ChainId = (2004, Polkadot);
 
-	let polkadot: ChainId = 0;
-	let moonbeam: ChainId = 2004;
+	assert!(identity
+		.add_chain(polkadot.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
+	assert!(identity
+		.add_chain(moonbeam.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
 
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot, encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address.clone())] }
 	);
 
 	assert_eq!(recorded_events().count(), 4);
@@ -103,7 +107,7 @@ fn add_address_to_identity_works() {
 	};
 
 	assert_eq!(identity_no, 0);
-	assert_eq!(chain, polkadot);
+	assert_eq!(chain, polkadot.clone());
 	assert_eq!(address, encoded_address);
 
 	// Cannot add an address for the same chain twice.
@@ -123,9 +127,16 @@ fn update_address_works() {
 
 	let mut identity = Identity::new();
 
+	let polkadot: ChainId = (0, Polkadot);
+	let moonbeam: ChainId = (2004, Polkadot);
+
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
-	assert!(identity.add_chain(2004, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(polkadot.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
+	assert!(identity
+		.add_chain(moonbeam.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -133,25 +144,22 @@ fn update_address_works() {
 		IdentityInfo { addresses: Default::default() }
 	);
 
-	let polkadot: ChainId = 0;
-	let moonbeam: ChainId = 2004;
-
 	let polkadot_address = alice.encode();
 
-	assert!(identity.add_address(polkadot, polkadot_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot.clone(), polkadot_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, polkadot_address)] }
+		IdentityInfo { addresses: vec![(polkadot.clone(), polkadot_address)] }
 	);
 
 	// Alice lost the key phrase of her old address so now she wants to use her other
 	// address.
 	let new_polkadot_address = bob.encode();
 
-	assert!(identity.update_address(polkadot, new_polkadot_address.clone()).is_ok());
+	assert!(identity.update_address(polkadot.clone(), new_polkadot_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, new_polkadot_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot.clone(), new_polkadot_address.clone())] }
 	);
 
 	assert_eq!(recorded_events().count(), 5);
@@ -166,7 +174,7 @@ fn update_address_works() {
 	};
 
 	assert_eq!(identity_no, 0);
-	assert_eq!(chain, polkadot);
+	assert_eq!(chain, polkadot.clone());
 	assert_eq!(updated_address, new_polkadot_address);
 
 	// Won't work since the identity doesn't have an address on the
@@ -184,8 +192,11 @@ fn remove_address_works() {
 
 	let mut identity = Identity::new();
 
+	let polkadot: ChainId = (0, Polkadot);
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity
+		.add_chain(polkadot.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -193,22 +204,21 @@ fn remove_address_works() {
 		IdentityInfo { addresses: Default::default() }
 	);
 
-	let polkadot: ChainId = 0;
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot, encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot, encoded_address)] }
+		IdentityInfo { addresses: vec![(polkadot.clone(), encoded_address)] }
 	);
 
 	// Bob is not allowed to remove an address from alice's identity.
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.remove_address(polkadot), Err(Error::NotAllowed));
+	assert_eq!(identity.remove_address(polkadot.clone()), Err(Error::NotAllowed));
 
 	set_caller::<DefaultEnvironment>(alice);
-	assert!(identity.remove_address(polkadot).is_ok());
+	assert!(identity.remove_address(polkadot.clone()).is_ok());
 
 	assert_eq!(recorded_events().count(), 4);
 	let last_event = recorded_events().last().unwrap();
@@ -220,7 +230,7 @@ fn remove_address_works() {
 	};
 
 	assert_eq!(identity_no, 0);
-	assert_eq!(chain, polkadot);
+	assert_eq!(chain, polkadot.clone());
 
 	assert_eq!(identity.number_to_identity.get(0).unwrap(), IdentityInfo { addresses: vec![] });
 
@@ -237,7 +247,10 @@ fn remove_identity_works() {
 
 	assert!(identity.create_identity().is_ok());
 
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	let polkadot: ChainId = (0, Polkadot);
+	assert!(identity
+		.add_chain(polkadot.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
 
 	assert_eq!(identity.owner_of.get(0), Some(alice));
 	assert_eq!(
@@ -247,9 +260,8 @@ fn remove_identity_works() {
 
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
-	let polkadot: ChainId = 0;
 
-	assert!(identity.add_address(polkadot, encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot.clone(), encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
 		IdentityInfo { addresses: vec![(polkadot, encoded_address)] }
@@ -283,10 +295,11 @@ fn remove_identity_works() {
 fn address_size_limit_works() {
 	let mut identity = Identity::new();
 
+	let polkadot = (0, Polkadot);
 	assert!(identity.create_identity().is_ok());
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
-
-	let polkadot = 0;
+	assert!(identity
+		.add_chain(polkadot.clone(), ChainInfo { account_type: AccountId32 })
+		.is_ok());
 
 	let mut polkadot_address: Vec<u8> = vec![];
 	(0..150).for_each(|n| polkadot_address.push(n));
@@ -302,7 +315,7 @@ fn add_chain_works() {
 	assert_eq!(identity.admin, alice);
 
 	// Adding a chain successful
-	assert!(identity.add_chain(0, ChainInfo { account_type: AccountId32 }).is_ok());
+	assert!(identity.add_chain((0, Kusama), ChainInfo { account_type: AccountId32 }).is_ok());
 
 	// Check emitted events
 	assert_eq!(recorded_events().count(), 1);
@@ -314,20 +327,20 @@ fn add_chain_works() {
 		panic!("ChainAdded event should be emitted")
 	};
 
-	assert_eq!(chain_id, 0);
+	assert_eq!(chain_id.clone(), (0, Kusama));
 	assert_eq!(account_type, AccountId32);
 
 	let info = ChainInfo { account_type: AccountId32 };
 
 	// Check storage items updated
-	assert_eq!(identity.chain_info_of.get(chain_id), Some(info.clone()));
+	assert_eq!(identity.chain_info_of.get(chain_id.clone()), Some(info.clone()));
 	assert_eq!(identity.available_chains(), vec![(chain_id, info)]);
-	assert_eq!(identity.chain_ids, vec![0]);
+	assert_eq!(identity.chain_ids, vec![(0, Kusama)]);
 
 	// Only the contract creator can add a new chain
 	set_caller::<DefaultEnvironment>(bob);
 	assert_eq!(
-		identity.add_chain(2004, ChainInfo { account_type: AccountId32 }),
+		identity.add_chain((2004, Kusama), ChainInfo { account_type: AccountId32 }),
 		Err(Error::NotAllowed)
 	);
 
@@ -342,24 +355,24 @@ fn remove_chain_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let chain_id = 0;
+	let chain_id = (0, Kusama);
 	assert!(
-		identity.add_chain(chain_id, ChainInfo { account_type }).is_ok(),
+		identity.add_chain(chain_id.clone(), ChainInfo { account_type }).is_ok(),
 		"Failed to add chain"
 	);
 
 	// Remove chain: chain doesn't exist
-	assert_eq!(identity.remove_chain(chain_id + 1), Err(Error::InvalidChain));
+	assert_eq!(identity.remove_chain((chain_id.0.clone(), Polkadot)), Err(Error::InvalidChain));
 
 	// Only the contract owner can remove a chain
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.remove_chain(chain_id), Err(Error::NotAllowed));
+	assert_eq!(identity.remove_chain(chain_id.clone()), Err(Error::NotAllowed));
 
 	// Remove chain successful
 	set_caller::<DefaultEnvironment>(alice);
-	assert!(identity.remove_chain(chain_id).is_ok());
+	assert!(identity.remove_chain(chain_id.clone()).is_ok());
 
-	assert!(identity.chain_info_of.get(0).is_none());
+	assert!(identity.chain_info_of.get(chain_id.clone()).is_none());
 
 	assert!(identity.available_chains().is_empty());
 
@@ -384,27 +397,30 @@ fn update_chain_works() {
 	let mut identity = Identity::new();
 	assert_eq!(identity.admin, alice);
 
-	let polkadot_id = 0;
+	let polkadot_id = (0, Polkadot);
 	assert!(
 		identity
-			.add_chain(polkadot_id, ChainInfo { account_type: account_type.clone() })
+			.add_chain(polkadot_id.clone(), ChainInfo { account_type: account_type.clone() })
 			.is_ok(),
 		"Failed to add chain"
 	);
 
-	assert!(identity.add_chain(2000, ChainInfo { account_type }).is_ok());
+	assert!(identity.add_chain((2000, Polkadot), ChainInfo { account_type }).is_ok());
 
 	// Only the contract owner can update a chain
 	set_caller::<DefaultEnvironment>(bob);
-	assert_eq!(identity.update_chain(polkadot_id, Some(AccountKey20)), Err(Error::NotAllowed));
+	assert_eq!(
+		identity.update_chain(polkadot_id.clone(), Some(AccountKey20)),
+		Err(Error::NotAllowed)
+	);
 
 	set_caller::<DefaultEnvironment>(alice);
 
 	// Must be an existing chain.
-	assert_eq!(identity.update_chain(3, None), Err(Error::InvalidChain));
+	assert_eq!(identity.update_chain((3, Polkadot), None), Err(Error::InvalidChain));
 
 	// Update chain success.
-	assert!(identity.update_chain(polkadot_id, Some(AccountKey20)).is_ok());
+	assert!(identity.update_chain(polkadot_id.clone(), Some(AccountKey20)).is_ok());
 
 	// Check the emitted events
 	assert_eq!(recorded_events().count(), 3);
@@ -463,9 +479,11 @@ fn transfer_ownership_works() {
 
 	let mut identity = Identity::new();
 
-	let polkadot_id = 0;
+	let polkadot_id = (0, Polkadot);
 	assert!(
-		identity.add_chain(polkadot_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(polkadot_id.clone(), ChainInfo { account_type: AccountId32 })
+			.is_ok(),
 		"Failed to add chain"
 	);
 
@@ -480,10 +498,10 @@ fn transfer_ownership_works() {
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot_id, encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 	);
 
 	// Bob is not allowed to transfer the ownership. Only alice or the
@@ -498,7 +516,7 @@ fn transfer_ownership_works() {
 	assert_eq!(identity.owner_of.get(0), Some(bob));
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 	);
 	assert_eq!(identity.identity_of.get(alice), None);
 	assert_eq!(identity.identity_of.get(bob), Some(0));
@@ -526,7 +544,6 @@ fn transfer_ownership_fails_when_new_owner_has_an_identity() {
 	let identity_no = 0;
 
 	let mut identity = Identity::new();
-
 	assert!(identity.create_identity().is_ok());
 
 	set_caller::<DefaultEnvironment>(bob);
@@ -545,22 +562,34 @@ fn init_with_chains_works() {
 		ChainInfo { account_type: AccountKey20 },
 		ChainInfo { account_type: AccountId32 },
 	];
-	let chain_ids = vec![0, 2000, 2004, 2006];
+	let chain_ids = vec![(0, Polkadot), (2000, Polkadot), (2004, Polkadot), (2006, Polkadot)];
 	let identity = Identity::init_with_chains(chains, chain_ids.clone());
 
-	assert_eq!(identity.chain_info_of(0), Some(ChainInfo { account_type: AccountId32 }));
-	assert_eq!(identity.chain_info_of(2000), Some(ChainInfo { account_type: AccountId32 }));
-	assert_eq!(identity.chain_info_of(2004), Some(ChainInfo { account_type: AccountKey20 }));
-	assert_eq!(identity.chain_info_of(2006), Some(ChainInfo { account_type: AccountId32 }));
+	assert_eq!(
+		identity.chain_info_of((0, Polkadot)),
+		Some(ChainInfo { account_type: AccountId32 })
+	);
+	assert_eq!(
+		identity.chain_info_of((2000, Polkadot)),
+		Some(ChainInfo { account_type: AccountId32 })
+	);
+	assert_eq!(
+		identity.chain_info_of((2004, Polkadot)),
+		Some(ChainInfo { account_type: AccountKey20 })
+	);
+	assert_eq!(
+		identity.chain_info_of((2006, Polkadot)),
+		Some(ChainInfo { account_type: AccountId32 })
+	);
 
 	assert_eq!(identity.chain_ids, chain_ids);
 	assert_eq!(
 		identity.available_chains(),
 		vec![
-			(0, ChainInfo { account_type: AccountId32 }),
-			(2000, ChainInfo { account_type: AccountId32 }),
-			(2004, ChainInfo { account_type: AccountKey20 }),
-			(2006, ChainInfo { account_type: AccountId32 })
+			((0, Polkadot), ChainInfo { account_type: AccountId32 }),
+			((2000, Polkadot), ChainInfo { account_type: AccountId32 }),
+			((2004, Polkadot), ChainInfo { account_type: AccountKey20 }),
+			((2006, Polkadot), ChainInfo { account_type: AccountId32 })
 		]
 	);
 }
@@ -572,9 +601,11 @@ fn getting_transaction_destination_works() {
 
 	let mut identity = Identity::new();
 
-	let polkadot_id = 0;
+	let polkadot_id = (0, Polkadot);
 	assert!(
-		identity.add_chain(polkadot_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(polkadot_id.clone(), ChainInfo { account_type: AccountId32 })
+			.is_ok(),
 		"Failed to add chain"
 	);
 
@@ -589,21 +620,26 @@ fn getting_transaction_destination_works() {
 	// In reality this address would be encrypted before storing in the contract.
 	let encoded_address = alice.encode();
 
-	assert!(identity.add_address(polkadot_id, encoded_address.clone()).is_ok());
+	assert!(identity.add_address(polkadot_id.clone(), encoded_address.clone()).is_ok());
 	assert_eq!(
 		identity.number_to_identity.get(0).unwrap(),
-		IdentityInfo { addresses: vec![(polkadot_id, encoded_address.clone())] }
+		IdentityInfo { addresses: vec![(polkadot_id.clone(), encoded_address.clone())] }
 	);
 
-	assert_eq!(identity.transaction_destination(identity_no, polkadot_id), Ok(encoded_address));
+	assert_eq!(
+		identity.transaction_destination(identity_no, polkadot_id.clone()),
+		Ok(encoded_address)
+	);
 
 	// Fails since the provided `identity_no` does not exist.
 	assert_eq!(identity.transaction_destination(42, polkadot_id), Err(Error::IdentityDoesntExist));
 
-	let moonbeam_id = 2004;
+	let moonbeam_id = (2004, Polkadot);
 	// Fails because alice does not have an address on the Moonbeam chain.
 	assert!(
-		identity.add_chain(moonbeam_id, ChainInfo { account_type: AccountId32 }).is_ok(),
+		identity
+			.add_chain(moonbeam_id.clone(), ChainInfo { account_type: AccountId32 })
+			.is_ok(),
 		"Failed to add chain"
 	);
 
