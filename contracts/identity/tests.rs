@@ -20,7 +20,8 @@ fn constructor_works() {
 	assert_eq!(identity.latest_identity_no, 0);
 	assert_eq!(identity.admin, alice);
 	assert_eq!(identity.chain_ids, vec![]);
-	assert_eq!(identity.available_chains(), Vec::default());
+	assert_eq!(identity.available_chains(Polkadot), Vec::default());
+	assert_eq!(identity.available_chains(Kusama), Vec::default());
 }
 
 #[ink::test]
@@ -334,7 +335,7 @@ fn add_chain_works() {
 
 	// Check storage items updated
 	assert_eq!(identity.chain_info_of.get(chain_id.clone()), Some(info.clone()));
-	assert_eq!(identity.available_chains(), vec![(chain_id, info)]);
+	assert_eq!(identity.available_chains(Kusama), vec![(chain_id.0, info)]);
 	assert_eq!(identity.chain_ids, vec![(0, Kusama)]);
 
 	// Only the contract creator can add a new chain
@@ -374,7 +375,7 @@ fn remove_chain_works() {
 
 	assert!(identity.chain_info_of.get(chain_id.clone()).is_none());
 
-	assert!(identity.available_chains().is_empty());
+	assert!(identity.available_chains(Kusama).is_empty());
 
 	// Check emitted events
 	let last_event = recorded_events().last().unwrap();
@@ -584,13 +585,38 @@ fn init_with_chains_works() {
 
 	assert_eq!(identity.chain_ids, chain_ids);
 	assert_eq!(
-		identity.available_chains(),
+		identity.available_chains(Polkadot),
 		vec![
-			((0, Polkadot), ChainInfo { account_type: AccountId32 }),
-			((2000, Polkadot), ChainInfo { account_type: AccountId32 }),
-			((2004, Polkadot), ChainInfo { account_type: AccountKey20 }),
-			((2006, Polkadot), ChainInfo { account_type: AccountId32 })
+			(0, ChainInfo { account_type: AccountId32 }),
+			(2000, ChainInfo { account_type: AccountId32 }),
+			(2004, ChainInfo { account_type: AccountKey20 }),
+			(2006, ChainInfo { account_type: AccountId32 })
 		]
+	);
+}
+
+#[ink::test]
+fn available_chains_works() {
+	let chains = vec![
+		ChainInfo { account_type: AccountId32 },
+		ChainInfo { account_type: AccountId32 },
+		ChainInfo { account_type: AccountKey20 },
+		ChainInfo { account_type: AccountId32 },
+	];
+	let chain_ids = vec![(0, Polkadot), (2000, Polkadot), (2004, Polkadot), (2006, Kusama)];
+	let identity = Identity::init_with_chains(chains, chain_ids);
+
+	assert_eq!(
+		identity.available_chains(Polkadot),
+		vec![
+			(0, ChainInfo { account_type: AccountId32 }),
+			(2000, ChainInfo { account_type: AccountId32 }),
+			(2004, ChainInfo { account_type: AccountKey20 }),
+		]
+	);
+	assert_eq!(
+		identity.available_chains(Kusama),
+		vec![(2006, ChainInfo { account_type: AccountId32 })]
 	);
 }
 
