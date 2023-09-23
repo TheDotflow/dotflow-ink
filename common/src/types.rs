@@ -14,7 +14,9 @@ pub type IdentityNo = u32;
 pub type EncryptedAddress = Vec<u8>;
 
 /// Used to represent any blockchain in the Polkadot, Kusama or Rococo chain.
-pub type ChainId = u32;
+///
+/// We also need the network to differentiate two parachains with the same paraId.
+pub type ChainId = (u32, Network);
 
 /// We currently support these two address types since XCM is also supporting
 /// only these ones.
@@ -23,6 +25,13 @@ pub type ChainId = u32;
 pub enum AccountType {
 	AccountId32,
 	AccountKey20,
+}
+
+#[derive(scale::Encode, scale::Decode, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
+pub enum Network {
+	Polkadot,
+	Kusama,
 }
 
 #[derive(scale::Encode, scale::Decode, Debug, PartialEq, Clone)]
